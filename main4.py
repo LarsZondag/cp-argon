@@ -129,14 +129,31 @@ for t in range(0, Nt):
     msd += vdt * vdt
     diff[t] = np.sum(msd) / (6 * N * (t+1) * dt)
 
-
+# Calculating the pair correlation function and the structure factor.
 nPCavg = nPCtot/Nt
-
 for p in range(len(rPC)):
-
     PCF[p] = 2*nPCavg[p]/(4*math.pi*rPC[p]*rPC[p]*drPC*density*(N-1))
-
 Strucfac = abs(np.fft.fft(PCF))
+
+# Calculating the temperature and pressure
+temp = e_kt * 2 / (3 * N)
+pres = density / (3 * N) * (2 * e_kt + virial)
+print(diff)
+
+# Here we take a number of samples to determine the Cv over. Then a mean is calculated from these samples
+# And the error is determined according to the standard deviation.
+samples = 2
+cv = np.zeros(samples)
+for i in range(samples):
+    interval_start = relaxation_time + i * math.floor((Nt - relaxation_time) / samples)
+    interval_stop = interval_start + math.floor((Nt - relaxation_time) / samples)
+    std_tmp = np.mean((temp[interval_start:interval_stop] - np.mean(temp[interval_start:interval_stop])) ** 2)
+    cv[i] = ((2 / (3 * N) - std_tmp / (np.mean(temp[interval_start:interval_stop]) ** 2)) ** (-1)) / N * 2 / 3
+print("Theoretical Cv = ", 3 / T)
+print("Emperical Cv = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
+print("mean temp", np.mean(temp[relaxation_time:]))
+
+# PLOTS
 
 plt.figure(1)
 plt.subplot(211)
@@ -149,20 +166,6 @@ plt.plot(rPC, PCF)
 plt.xlabel(r'r/$\sigma$')
 plt.ylabel('g(r)')
 plt.show()
-
-temp = e_kt * 2 / (3 * N)
-pres = density / (3 * N) * (2 * e_kt + virial)
-print(diff)
-samples = 2
-cv = np.zeros(samples)
-for i in range(samples):
-    interval_start = relaxation_time + i * math.floor((Nt - relaxation_time) / samples)
-    interval_stop = interval_start + math.floor((Nt - relaxation_time) / samples)
-    std_tmp = np.mean((temp[interval_start:interval_stop] - np.mean(temp[interval_start:interval_stop])) ** 2)
-    cv[i] = ((2 / (3 * N) - std_tmp / (np.mean(temp[interval_start:interval_stop]) ** 2)) ** (-1)) / N * 2 / 3
-print("Theoretical Cv = ", 3 / T)
-print("Emperical Cv = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
-print("mean temp", np.mean(temp[relaxation_time:]))
 # print(avg_temp)
 # print(temp)
 # print(temp)
