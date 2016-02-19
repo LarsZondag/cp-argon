@@ -6,15 +6,16 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 4
-T = 3.1
-density = 0.3
+L = 2
+T = 1
+density = 0.8
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
 dt = 0.004
 relaxation_time = 1000
 Nt = 5000 + relaxation_time
+
 
 # Initialize constants and variables needed for the statistics. Samples is the number of intervals
 # the measurement will be divided up in. The mean of each quantity will be calculated over this number of
@@ -158,6 +159,7 @@ for t in range(0, Nt):
 nPCavg = nPCtot / Nt
 for p in range(len(rPC)):
     PCF[p] = 2 * nPCavg[p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
+    
 
 # Calculating the temperature and pressure
 temp = e_kt * 2 / (3 * N)
