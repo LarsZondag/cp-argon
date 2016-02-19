@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 4
+L = 6
 N = 4 * L ** 3
 T = 3.1
 density = 0.3
@@ -17,11 +17,13 @@ relaxation_time = 500
 Nt = 500 + relaxation_time
 eps_kb = 125
 
-e_kt = np.zeros((Nt, 1))
-mom = np.zeros((Nt, 1))
-e_pot = np.zeros((Nt, 1))
-temp = np.zeros((Nt, 1))
-cv = np.zeros((Nt, 1))
+e_kt = np.zeros(Nt)
+mom_x = np.zeros(Nt)
+mom_y = np.zeros(Nt)
+mom_z = np.zeros(Nt)
+e_pot = np.zeros(Nt)
+temp = np.zeros(Nt)
+cv = np.zeros(Nt)
 
 bins = 150
 drPC = 5/bins
@@ -111,8 +113,10 @@ for t in range(0, Nt):
     if t < relaxation_time:
         # Optionally rescale the velocies in order to make temperature constant:
         velos *= math.sqrt(N * 3 * T / (2 * e_kt[t]))
-        mom[t] = np.sum(np.sum(velos, axis=0) ** 2)
         e_kt[t] = 0.5 * np.sum(velos * velos)
+    mom_x[t] = sum(velos[:, 0])
+    mom_y[t] = sum(velos[:, 1])
+    mom_z[t] = sum(velos[:, 2])
 
 temp = e_kt * 2 / (3 * N)
 
@@ -132,16 +136,16 @@ print("mean temp", np.mean(temp[relaxation_time:]))
 # print(temp)
 # print(temp)
 
-print(e_kt)
+# print(e_kt)
 # linee_pot, = plt.plot(range(Nt), e_pot, label="Potential energy")
 # line_E, = plt.plot(range(Nt), e_kt + e_pot, label="Total energy")
 # linee_kt, = plt.plot(range(Nt), e_kt, label="Kinetic energy")
 # # lineMom, = plt.plot(range(Nt), mom, label="Momentum")
-line_temp, = plt.plot(range(Nt), temp, label="Temperature")
-# line_avg_temp, = plt.plot(range(len(avg_temp)), avg_temp, label="Average Temperature")
-# line_cv, = plt.plot(range(Nt), cv, label="Heat Capacity")
-# line_avg_cv, = plt.plot(range(len(avg_cv)), avg_cv, label="Average Heat Capacity")
-#
-#
-plt.legend(handles=[line_temp])
-plt.show()
+# line_temp, = plt.plot(range(Nt), temp, label="Temperature")
+# # line_avg_temp, = plt.plot(range(len(avg_temp)), avg_temp, label="Average Temperature")
+# # line_cv, = plt.plot(range(Nt), cv, label="Heat Capacity")
+# # line_avg_cv, = plt.plot(range(len(avg_cv)), avg_cv, label="Average Heat Capacity")
+# #
+# #
+# plt.legend(handles=[line_temp])
+# plt.show()
