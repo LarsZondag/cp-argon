@@ -26,8 +26,8 @@ temp = np.zeros(Nt)
 cv = np.zeros(Nt)
 
 bins = 150
-drPC = 5/bins
-rPC = np.linspace(0.001, box_size*0.5, bins)
+drPC = 5 / bins
+rPC = np.linspace(0.001, box_size * 0.5, bins)
 
 
 @jit
@@ -41,8 +41,13 @@ def calc_forces(locations):
     for i in range(N):
         for j in range(i + 1, N):
             dis_vec = locations[i] - locations[j]
-            
+            dx = locations[i, 0] - locations[j, 0]
+            dy = locations[i, 1] - locations[j, 1]
+            dz = locations[i, 2] - locations[j, 2]
             dis_vec -= np.rint(dis_vec / box_size) * box_size
+            dx -= np.ring(dx / box_size) * box_size
+            dy -= np.ring(dy / box_size) * box_size
+            dz -= np.ring(dz / box_size) * box_size
             r2 = np.sum(dis_vec ** 2)
             if r2 < rc2:
                 ir2 = 1 / r2
