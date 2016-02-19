@@ -16,6 +16,7 @@ relaxation_time = 500
 Nt = 500 + relaxation_time
 eps_kb = 125
 e_kt = np.zeros(Nt)
+virial = np.zeros(Nt)
 mom_x = np.zeros(Nt)
 mom_y = np.zeros(Nt)
 mom_z = np.zeros(Nt)
@@ -65,18 +66,15 @@ def calc_forces(locations):
                 f[j, 0] -= fx
                 f[j, 1] -= fy
                 f[j, 2] -= fz
-                # f[j] -= common_force_factor
-                # common_potential = 4 * (ir12 - ir6)
                 potential += 4 * (ir12 - ir6)
                 common_virial = fx * dx + fy * dy + fz * dz
                 virial[i] += common_virial
                 virial[j] -= common_virial
 
-    return f, potential, virial
+    return f, potential, sum(virial)
 
 
 def initiate():
-    # velocities = np.zeros((N, 3))
     locations = np.zeros((N, 3))
     fcc = np.array([  # These are the locations available within one cell of the FCC structure
         [0.0, 0.0, 0.0],
@@ -91,24 +89,14 @@ def initiate():
                     locations[index] = np.add(fcc[z], np.array([i, j, k]))
                     index += 1
     locations *= box_size / L
-    # a = math.sqrt(T)
-    # speeds = stats.maxwell.rvs(loc=0, scale=a, size=N)  # This takes random maxwell-distributed values
-    # # Take N normally distributed values, this is the base for our speeds.
+    # Take N normally distributed values, this is the base for our speeds.
     velocities = stats.norm.rvs(size=(N, 3))
-    #
-    # # After this we scale the ran_velos such that the vector is the same size as speeds.
-    # # Then it will correspond to a maxwell distribution with random directions.
-    # for i in range(N):
-    #     normVelocity = np.linalg.norm(ran_velos[i, :])
-    #     scaling = speeds[i] / normVelocity
-    #     velocities[i] = ran_velos[i] * scaling
-    #
-    # # Now make sure there is no net-movement of the particles (take of the average)
+    # Now make sure there is no net-movement of the particles (take of the average)
     velocities -= np.mean(velocities, axis=0)
     energy_kinetic = 0.5 * np.sum(velocities * velocities)
     velocities *= math.sqrt(N * 3 * T / (2 * energy_kinetic))
     forces, potential, virial = calc_forces(locations)
-    return locations, velocities, forces  # , potential, energy_kinetic, momentum
+    return locations, velocities, forces
 
 
 def make_time_step(locations, velocities, old_f):
@@ -122,20 +110,22 @@ def make_time_step(locations, velocities, old_f):
 
 locs, velos, forces = initiate()
 for t in range(0, Nt):
-    locs, velos, forces, e_pot[t], virial = make_time_step(locs, velos, forces)
+    locs, velos, forces, e_pot[t], virial[t] = make_time_step(locs, velos, forces)
     e_kt[t] = 0.5 * np.sum(velos * velos)
+    # Optionally rescale the velocies in order to make temperature constant:
     if t < relaxation_time:
-        # Optionally rescale the velocies in order to make temperature constant:
         velos *= math.sqrt(N * 3 * T / (2 * e_kt[t]))
         e_kt[t] = 0.5 * np.sum(velos * velos)
     mom_x[t] = sum(velos[:, 0])
     mom_y[t] = sum(velos[:, 1])
     mom_z[t] = sum(velos[:, 2])
-    pres[t] = density / (3 * N) * (2 * e_kt[t] + np.sum(virial))
     vdt = velos * dt
     msd += vdt * vdt
-    diff[t] = 1 / 6 / N / (t + 1) * np.sum(msd)
+    diff[t] = np.sum(msd) / (6 * N * (t+1) * dt)
+
 temp = e_kt * 2 / (3 * N)
+pres = density / (3 * N) * (2 * e_kt + virial)
+print(diff)
 samples = 2
 cv = np.zeros(samples)
 for i in range(samples):
@@ -147,7 +137,8 @@ print("Theoretical Cv = ", 3 / T)
 print("Emperical Cv = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
 print("mean temp", np.mean(temp[relaxation_time:]))
 
-print("mean diff ", np.mean(diff))
+# print("mean diff ", np.mean(diff))
+
 # print(avg_temp)
 # print(temp)
 # print(temp)
