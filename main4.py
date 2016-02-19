@@ -42,7 +42,7 @@ pres = np.zeros(Nt)
 diff = np.zeros(Nt)
 distance = np.zeros((N, 3))
 bins = 150
-drPC = 5 / bins
+drPC = 1 / bins
 rPC = np.linspace(0.001, box_size * 0.5, bins)
 nPC = np.zeros([len(rPC)])
 nPCtot = np.zeros([len(rPC)])
@@ -153,7 +153,7 @@ for t in range(0, Nt):
     mom_z[t] = sum(velos[:, 2])
 
 
-# Calculating the pair correlation function and the structure factor.
+# Calculating the pair correlation function
 nPCavg = nPCtot / Nt
 for p in range(len(rPC)):
     PCF[p] = 2 * nPCavg[p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
