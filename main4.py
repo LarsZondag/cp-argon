@@ -29,6 +29,8 @@ msd = 0
 bins = 150
 drPC = 5 / bins
 rPC = np.linspace(0.001, box_size * 0.5, bins)
+nPC = np.zeros([len(rPC)])
+nPCtot = np.zeros([len(rPC)])
 
 
 @jit
@@ -42,21 +44,22 @@ def calc_forces(locations):
     # In the loop a check is made to make sure the right images are used (periodic boundary conditions)
     for i in range(N):
         for j in range(i + 1, N):
-            dis_vec = locations[i] - locations[j]
+            # dis_vec = locations[i] - locations[j]
             dx = locations[i, 0] - locations[j, 0]
             dy = locations[i, 1] - locations[j, 1]
             dz = locations[i, 2] - locations[j, 2]
-            dis_vec -= np.rint(dis_vec / box_size) * box_size
+            # dis_vec -= np.rint(dis_vec / box_size) * box_size
             dx -= np.rint(dx / box_size) * box_size
             dy -= np.rint(dy / box_size) * box_size
             dz -= np.rint(dz / box_size) * box_size
-            r2 = np.sum(dis_vec ** 2)
+            # r2 = np.sum(dis_vec ** 2)
+            r2 = dx * dx + dy * dy + dz * dz
             if r2 < rc2:
                 ir2 = 1 / r2
                 ir6 = ir2 * ir2 * ir2
                 ir12 = ir6 * ir6
                 # Implement Lennard-Jones
-                common_force_factor = 24 * ir2 * (2 * ir12 - ir6) # * dis_vec
+                common_force_factor = 24 * ir2 * (2 * ir12 - ir6)  # * dis_vec
                 fx = common_force_factor * dx
                 fy = common_force_factor * dy
                 fz = common_force_factor * dz
@@ -70,8 +73,10 @@ def calc_forces(locations):
                 common_virial = fx * dx + fy * dy + fz * dz
                 virial[i] += common_virial
                 virial[j] -= common_virial
-
-    return f, potential, sum(virial)
+            for k in range(len(rPC)):
+                if (r2 > rPC[k] * rPC[k]) and (r2 < ((rPC[k] + drPC) * (rPC[k] + drPC))):
+                    nPC[k] += 1
+    return f, potential, sum(virial), nPC
 
 
 def initiate():
@@ -95,7 +100,7 @@ def initiate():
     velocities -= np.mean(velocities, axis=0)
     energy_kinetic = 0.5 * np.sum(velocities * velocities)
     velocities *= math.sqrt(N * 3 * T / (2 * energy_kinetic))
-    forces, potential, virial = calc_forces(locations)
+    forces, potential, virial, nPC = calc_forces(locations)
     return locations, velocities, forces
 
 
@@ -103,14 +108,15 @@ def make_time_step(locations, velocities, old_f):
     velocities += 0.5 * old_f * dt
     locations += velocities * dt
     locations = np.mod(locations, box_size)
-    new_f, potential, virial = calc_forces(locations)
+    new_f, potential, virial, nPC = calc_forces(locations)
     velocities += 0.5 * new_f * dt
-    return locations, velocities, new_f, potential, virial
+    return locations, velocities, new_f, potential, virial, nPC
 
 
 locs, velos, forces = initiate()
 for t in range(0, Nt):
-    locs, velos, forces, e_pot[t], virial[t] = make_time_step(locs, velos, forces)
+    locs, velos, forces, e_pot[t], virial[t], nPC = make_time_step(locs, velos, forces)
+    nPCtot += nPC
     e_kt[t] = 0.5 * np.sum(velos * velos)
     # Optionally rescale the velocies in order to make temperature constant:
     if t < relaxation_time:
@@ -123,6 +129,7 @@ for t in range(0, Nt):
     msd += vdt * vdt
     diff[t] = np.sum(msd) / (6 * N * (t+1) * dt)
 
+nPCavg = nPCtot/Nt
 temp = e_kt * 2 / (3 * N)
 pres = density / (3 * N) * (2 * e_kt + virial)
 print(diff)
@@ -136,9 +143,6 @@ for i in range(samples):
 print("Theoretical Cv = ", 3 / T)
 print("Emperical Cv = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
 print("mean temp", np.mean(temp[relaxation_time:]))
-
-# print("mean diff ", np.mean(diff))
-
 # print(avg_temp)
 # print(temp)
 # print(temp)
