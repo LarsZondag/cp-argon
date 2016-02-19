@@ -6,14 +6,29 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 3
-N = 4 * L ** 3
-T = 3
+L = 4
+T = 3.1
 density = 0.3
-box_size = (N / density) ** (1 / 3)
+
+# The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
+# the system gets to reach a steady state (within this time the thermostat is used).
 dt = 0.004
-relaxation_time = 500
-Nt = 500 + relaxation_time
+relaxation_time = 1000
+Nt = 5000 + relaxation_time
+
+# Initialize constants and variables needed for the statistics. Samples is the number of intervals
+# the measurement will be divided up in. The mean of each quantity will be calculated over this number of
+# samples and the error will be related to the variance between these samples
+samples = 5
+sample_index = 0
+sample_length = math.floor((Nt - relaxation_time) / samples)
+cv = np.zeros(samples)
+distance = np.zeros(samples)
+diff_c = np.zeros(samples)
+
+# Initialize all the variables needed for the calculations
+N = 4 * L ** 3
+box_size = (N / density) ** (1 / 3)
 eps_kb = 125
 e_kt = np.zeros(Nt)
 virial = np.zeros(Nt)
@@ -25,13 +40,14 @@ temp = np.zeros(Nt)
 cv = np.zeros(Nt)
 pres = np.zeros(Nt)
 diff = np.zeros(Nt)
-msd = 0
+distance = np.zeros((N, 3))
 bins = 150
 drPC = 5 / bins
 rPC = np.linspace(0.001, box_size * 0.5, bins)
 nPC = np.zeros([len(rPC)])
 nPCtot = np.zeros([len(rPC)])
 PCF = np.zeros([len(rPC)])
+
 
 @jit
 def calc_forces(locations):
@@ -118,31 +134,38 @@ for t in range(0, Nt):
     locs, velos, forces, e_pot[t], virial[t], nPC = make_time_step(locs, velos, forces)
     nPCtot += nPC
     e_kt[t] = 0.5 * np.sum(velos * velos)
+    distance += velos * dt
     # Optionally rescale the velocies in order to make temperature constant:
     if t < relaxation_time:
         velos *= math.sqrt(N * 3 * T / (2 * e_kt[t]))
         e_kt[t] = 0.5 * np.sum(velos * velos)
+    elif (t-relaxation_time) % sample_length == 0: # Calculation of the self-diffusion coefficient:
+        dx = distance[:,0]
+        dy = distance[:,1]
+        dz = distance[:,2]
+        d2 = sum(dx * dx) + sum(dy * dy) + sum(dz * dz)
+        diff_c[sample_index] = d2 / (6 * N * sample_length * dt)
+        distance = np.zeros((N,3))
+        sample_index += 1
+
     mom_x[t] = sum(velos[:, 0])
     mom_y[t] = sum(velos[:, 1])
     mom_z[t] = sum(velos[:, 2])
-    msd += velos * dt
-    diff[t] = np.sum(msd**2) / (6 * N * (t+1) * dt)
+
 
 # Calculating the pair correlation function and the structure factor.
-nPCavg = nPCtot/Nt
+nPCavg = nPCtot / Nt
 for p in range(len(rPC)):
-    PCF[p] = 2*nPCavg[p]/(4*math.pi*rPC[p]*rPC[p]*drPC*density*(N-1))
-
+    PCF[p] = 2 * nPCavg[p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
 
 # Calculating the temperature and pressure
 temp = e_kt * 2 / (3 * N)
 pres = density / (3 * N) * (2 * e_kt + virial)
-print(diff)
+print(diff_c)
 
 # Here we take a number of samples to determine the Cv over. Then a mean is calculated from these samples
 # And the error is determined according to the standard deviation.
-samples = 2
-cv = np.zeros(samples)
+
 for i in range(samples):
     interval_start = relaxation_time + i * math.floor((Nt - relaxation_time) / samples)
     interval_stop = interval_start + math.floor((Nt - relaxation_time) / samples)
@@ -154,7 +177,7 @@ print("mean temp", np.mean(temp[relaxation_time:]))
 
 # PLOTS
 
-plt.plot(rPC, np.ones([len(rPC)]),'--', rPC, PCF)
+plt.plot(rPC, np.ones([len(rPC)]), '--', rPC, PCF)
 plt.xlabel(r'r/$\sigma$')
 plt.ylabel('g(r)')
 plt.show()
@@ -175,5 +198,3 @@ plt.show()
 # #
 # plt.legend(handles=[line_temp])
 # plt.show()
-
-
