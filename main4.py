@@ -23,12 +23,17 @@ e_pot = np.zeros((Nt, 1))
 temp = np.zeros((Nt, 1))
 cv = np.zeros((Nt, 1))
 
+bins = 150
+drPC = 5/bins
+rPC = np.linspace(0.001, box_size*0.5, bins)
+
 
 @jit
 def calc_forces(locations):
     rc2 = 9.0
     f = np.zeros((N, 3))
     potential = 0
+    nPC = np.zeros([len(rPC)])
     # These for-loops fill the distances array with the appropriate distance. Notice distances = -distances^T
     # In the loop a check is made to make sure the right images are used (periodic boundary conditions)
     for i in range(N):
