@@ -6,14 +6,14 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 6
+L = 3
 N = 4 * L ** 3
 T = 0.5
 density = 1.2
 box_size = (N / density) ** (1 / 3)
 dt = 0.004
 relaxation_time = 500
-Nt = 9500 + relaxation_time
+Nt = 500 + relaxation_time
 eps_kb = 125
 e_kt = np.zeros(Nt)
 virial = np.zeros(Nt)
@@ -133,7 +133,7 @@ for t in range(0, Nt):
 nPCavg = nPCtot/Nt
 for p in range(len(rPC)):
     PCF[p] = 2*nPCavg[p]/(4*math.pi*rPC[p]*rPC[p]*drPC*density*(N-1))
-Strucfac = abs(np.fft.fft(PCF))
+
 
 # Calculating the temperature and pressure
 temp = e_kt * 2 / (3 * N)
@@ -155,17 +155,11 @@ print("mean temp", np.mean(temp[relaxation_time:]))
 
 # PLOTS
 
-plt.figure(1)
-plt.subplot(211)
-plt.plot(rPC, Strucfac)
-plt.xlabel(r'r/$\sigma$')
-plt.ylabel('S')
-
-plt.subplot(212)
 plt.plot(rPC, np.ones([len(rPC)]),'--', rPC, PCF)
 plt.xlabel(r'r/$\sigma$')
 plt.ylabel('g(r)')
 plt.show()
+
 # print(avg_temp)
 # print(temp)
 # print(temp)
