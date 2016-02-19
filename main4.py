@@ -16,6 +16,7 @@ dt = 0.004
 relaxation_time = 500
 Nt = 500 + relaxation_time
 eps_kb = 125
+rc2 = 9.0
 
 e_kt = np.zeros(Nt)
 mom_x = np.zeros(Nt)
@@ -32,7 +33,6 @@ rPC = np.linspace(0.001, box_size * 0.5, bins)
 
 @jit
 def calc_forces(locations):
-    rc2 = 9.0
     f = np.zeros((N, 3))
     potential = 0
     nPC = np.zeros([len(rPC)])
@@ -40,23 +40,32 @@ def calc_forces(locations):
     # In the loop a check is made to make sure the right images are used (periodic boundary conditions)
     for i in range(N):
         for j in range(i + 1, N):
-            dis_vec = locations[i] - locations[j]
+            # dis_vec = locations[i] - locations[j]
             dx = locations[i, 0] - locations[j, 0]
             dy = locations[i, 1] - locations[j, 1]
             dz = locations[i, 2] - locations[j, 2]
-            dis_vec -= np.rint(dis_vec / box_size) * box_size
-            dx -= np.ring(dx / box_size) * box_size
-            dy -= np.ring(dy / box_size) * box_size
-            dz -= np.ring(dz / box_size) * box_size
-            r2 = np.sum(dis_vec ** 2)
+            # dis_vec -= np.rint(dis_vec / box_size) * box_size
+            dx -= np.rint(dx / box_size) * box_size
+            dy -= np.rint(dy / box_size) * box_size
+            dz -= np.rint(dz / box_size) * box_size
+            # r2 = np.sum(dis_vec ** 2)
+            r2 = dx * dx + dy * dy + dz * dz
             if r2 < rc2:
                 ir2 = 1 / r2
                 ir6 = ir2 * ir2 * ir2
                 ir12 = ir6 * ir6
                 # Implement Lennard-Jones
-                common_force_factor = 24 * ir2 * (2 * ir12 - ir6) * dis_vec
-                f[i] += common_force_factor
-                f[j] -= common_force_factor
+                common_force_factor = 24 * ir2 * (2 * ir12 - ir6) # * dis_vec
+                fx = common_force_factor * dx
+                fy = common_force_factor * dy
+                fz = common_force_factor * dz
+                f[i, 0] += fx
+                f[i, 1] += fy
+                f[i, 2] += fz
+                f[j, 0] -= fx
+                f[j, 1] -= fy
+                f[j, 2] -= fz
+                # f[j] -= common_force_factor
                 common_potential = 4 * (ir12 - ir6)
                 potential += common_potential
 
