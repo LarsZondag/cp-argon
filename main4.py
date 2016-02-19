@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 6
+L = 3
 N = 4 * L ** 3
-T = 0.5
-density = 1.2
+T = 3
+density = 0.3
 box_size = (N / density) ** (1 / 3)
 dt = 0.004
 relaxation_time = 500
@@ -125,9 +125,8 @@ for t in range(0, Nt):
     mom_x[t] = sum(velos[:, 0])
     mom_y[t] = sum(velos[:, 1])
     mom_z[t] = sum(velos[:, 2])
-    vdt = velos * dt
-    msd += vdt * vdt
-    diff[t] = np.sum(msd) / (6 * N * (t+1) * dt)
+    msd += velos * dt
+    diff[t] = np.sum(msd**2) / (6 * N * (t+1) * dt)
 
 # Calculating the pair correlation function and the structure factor.
 nPCavg = nPCtot/Nt
@@ -182,3 +181,5 @@ plt.show()
 # #
 # plt.legend(handles=[line_temp])
 # plt.show()
+
+
