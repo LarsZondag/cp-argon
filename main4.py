@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 3
+L = 6
 N = 4 * L ** 3
-T = 3.1
-density = 0.3
+T = 0.5
+density = 1.2
 box_size = (N / density) ** (1 / 3)
 dt = 0.004
 relaxation_time = 500
@@ -157,12 +157,12 @@ print("mean temp", np.mean(temp[relaxation_time:]))
 
 plt.figure(1)
 plt.subplot(211)
-plt.plot(Strucfac)
+plt.plot(rPC, Strucfac)
 plt.xlabel(r'r/$\sigma$')
-plt.ylabel('g(r)')
+plt.ylabel('S')
 
 plt.subplot(212)
-plt.plot(rPC, PCF)
+plt.plot(rPC, np.ones([len(rPC)]),'--', rPC, PCF)
 plt.xlabel(r'r/$\sigma$')
 plt.ylabel('g(r)')
 plt.show()
