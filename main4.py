@@ -66,10 +66,11 @@ def calc_forces(locations):
                 f[j, 1] -= fy
                 f[j, 2] -= fz
                 # f[j] -= common_force_factor
-                common_potential = 4 * (ir12 - ir6)
-                potential += common_potential
-                virial[i] += np.dot(f[i], [[dx], [dy], [dz]])
-                virial[j] -= np.dot(f[j], [[dx], [dy], [dz]])
+                # common_potential = 4 * (ir12 - ir6)
+                potential += 4 * (ir12 - ir6)
+                common_virial = fx * dx + fy * dy + fz * dz
+                virial[i] += common_virial
+                virial[j] -= common_virial
 
     return f, potential, virial
 
@@ -131,7 +132,8 @@ for t in range(0, Nt):
     mom_y[t] = sum(velos[:, 1])
     mom_z[t] = sum(velos[:, 2])
     pres[t] = density / (3 * N) * (2 * e_kt[t] + np.sum(virial))
-    msd += (velos * dt) ** 2
+    vdt = velos * dt
+    msd += vdt * vdt
     diff[t] = 1 / 6 / N / (t + 1) * np.sum(msd)
 temp = e_kt * 2 / (3 * N)
 samples = 2
@@ -145,6 +147,7 @@ print("Theoretical Cv = ", 3 / T)
 print("Emperical Cv = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
 print("mean temp", np.mean(temp[relaxation_time:]))
 
+print("mean diff ", np.mean(diff))
 # print(avg_temp)
 # print(temp)
 # print(temp)
