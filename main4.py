@@ -37,7 +37,6 @@ mom_y = np.zeros(Nt)
 mom_z = np.zeros(Nt)
 e_pot = np.zeros(Nt)
 temp = np.zeros(Nt)
-cv = np.zeros(Nt)
 pres = np.zeros(Nt)
 diff = np.zeros(Nt)
 distance = np.zeros((N, 3))
@@ -134,12 +133,12 @@ for t in range(0, Nt):
     locs, velos, forces, e_pot[t], virial[t], nPC = make_time_step(locs, velos, forces)
     nPCtot += nPC
     e_kt[t] = 0.5 * np.sum(velos * velos)
-    distance += velos * dt
     # Optionally rescale the velocies in order to make temperature constant:
     if t < relaxation_time:
         velos *= math.sqrt(N * 3 * T / (2 * e_kt[t]))
         e_kt[t] = 0.5 * np.sum(velos * velos)
-    elif (t-relaxation_time) % sample_length == 0: # Calculation of the self-diffusion coefficient:
+    elif (t + 1 - relaxation_time) % sample_length == 0 and t > (relaxation_time + sample_length - samples): # Calculation of the self-diffusion coefficient:
+        print((t + 1 - relaxation_time))
         dx = distance[:,0]
         dy = distance[:,1]
         dz = distance[:,2]
@@ -147,6 +146,8 @@ for t in range(0, Nt):
         diff_c[sample_index] = d2 / (6 * N * sample_length * dt)
         distance = np.zeros((N,3))
         sample_index += 1
+    else:
+        distance += velos * dt
 
     mom_x[t] = sum(velos[:, 0])
     mom_y[t] = sum(velos[:, 1])
@@ -167,11 +168,13 @@ print(diff_c)
 # And the error is determined according to the standard deviation.
 
 for i in range(samples):
-    interval_start = relaxation_time + i * math.floor((Nt - relaxation_time) / samples)
-    interval_stop = interval_start + math.floor((Nt - relaxation_time) / samples)
-    std_tmp = np.mean((temp[interval_start:interval_stop] - np.mean(temp[interval_start:interval_stop])) ** 2)
-    cv[i] = ((2 / (3 * N) - std_tmp / (np.mean(temp[interval_start:interval_stop]) ** 2)) ** (-1)) / N * 2 / 3
-print("Theoretical Cv = ", 3 / T)
+    interval_start = relaxation_time + i * sample_length
+    interval_stop = interval_start + sample_length - 1
+    k = np.mean(e_kt[interval_start:interval_stop])
+    dk2 = np.mean((e_kt[interval_start:interval_stop] - k) ** 2)
+    k2 = k * k
+    cv[i] = 3 * k2 / (2 * k2 - 3 * N * dk2)
+print("Theoretical Cv = 1.5")
 print("Emperical Cv = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
 print("mean temp", np.mean(temp[relaxation_time:]))
 
