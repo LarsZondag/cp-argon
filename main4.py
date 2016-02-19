@@ -6,18 +6,15 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 6
+L = 3
 N = 4 * L ** 3
 T = 3.1
 density = 0.3
-
 box_size = (N / density) ** (1 / 3)
 dt = 0.004
 relaxation_time = 500
 Nt = 500 + relaxation_time
 eps_kb = 125
-rc2 = 9.0
-
 e_kt = np.zeros(Nt)
 mom_x = np.zeros(Nt)
 mom_y = np.zeros(Nt)
@@ -25,7 +22,9 @@ mom_z = np.zeros(Nt)
 e_pot = np.zeros(Nt)
 temp = np.zeros(Nt)
 cv = np.zeros(Nt)
-
+pres = np.zeros(Nt)
+diff = np.zeros(Nt)
+msd = 0
 bins = 150
 drPC = 5 / bins
 rPC = np.linspace(0.001, box_size * 0.5, bins)
@@ -33,23 +32,24 @@ rPC = np.linspace(0.001, box_size * 0.5, bins)
 
 @jit
 def calc_forces(locations):
+    rc2 = 9.0
     f = np.zeros((N, 3))
+    virial = np.zeros(N)
     potential = 0
     nPC = np.zeros([len(rPC)])
     # These for-loops fill the distances array with the appropriate distance. Notice distances = -distances^T
     # In the loop a check is made to make sure the right images are used (periodic boundary conditions)
     for i in range(N):
         for j in range(i + 1, N):
-            # dis_vec = locations[i] - locations[j]
+            dis_vec = locations[i] - locations[j]
             dx = locations[i, 0] - locations[j, 0]
             dy = locations[i, 1] - locations[j, 1]
             dz = locations[i, 2] - locations[j, 2]
-            # dis_vec -= np.rint(dis_vec / box_size) * box_size
+            dis_vec -= np.rint(dis_vec / box_size) * box_size
             dx -= np.rint(dx / box_size) * box_size
             dy -= np.rint(dy / box_size) * box_size
             dz -= np.rint(dz / box_size) * box_size
-            # r2 = np.sum(dis_vec ** 2)
-            r2 = dx * dx + dy * dy + dz * dz
+            r2 = np.sum(dis_vec ** 2)
             if r2 < rc2:
                 ir2 = 1 / r2
                 ir6 = ir2 * ir2 * ir2
@@ -68,8 +68,10 @@ def calc_forces(locations):
                 # f[j] -= common_force_factor
                 common_potential = 4 * (ir12 - ir6)
                 potential += common_potential
+                virial[i] += np.dot(f[i], [[dx], [dy], [dz]])
+                virial[j] -= np.dot(f[j], [[dx], [dy], [dz]])
 
-    return f, potential
+    return f, potential, virial
 
 
 def initiate():
@@ -80,7 +82,6 @@ def initiate():
         [0.5, 0.5, 0.0],
         [0.0, 0.5, 0.5],
         [0.5, 0.0, 0.5]])
-
     index = 0
     for i in range(L):
         for j in range(L):
@@ -105,7 +106,7 @@ def initiate():
     velocities -= np.mean(velocities, axis=0)
     energy_kinetic = 0.5 * np.sum(velocities * velocities)
     velocities *= math.sqrt(N * 3 * T / (2 * energy_kinetic))
-    forces, potential = calc_forces(locations)
+    forces, potential, virial = calc_forces(locations)
     return locations, velocities, forces  # , potential, energy_kinetic, momentum
 
 
@@ -113,16 +114,14 @@ def make_time_step(locations, velocities, old_f):
     velocities += 0.5 * old_f * dt
     locations += velocities * dt
     locations = np.mod(locations, box_size)
-    new_f, potential = calc_forces(locations)
+    new_f, potential, virial = calc_forces(locations)
     velocities += 0.5 * new_f * dt
-
-    return locations, velocities, new_f, potential
+    return locations, velocities, new_f, potential, virial
 
 
 locs, velos, forces = initiate()
-
 for t in range(0, Nt):
-    locs, velos, forces, e_pot[t] = make_time_step(locs, velos, forces)
+    locs, velos, forces, e_pot[t], virial = make_time_step(locs, velos, forces)
     e_kt[t] = 0.5 * np.sum(velos * velos)
     if t < relaxation_time:
         # Optionally rescale the velocies in order to make temperature constant:
@@ -131,9 +130,10 @@ for t in range(0, Nt):
     mom_x[t] = sum(velos[:, 0])
     mom_y[t] = sum(velos[:, 1])
     mom_z[t] = sum(velos[:, 2])
-
+    pres[t] = density / (3 * N) * (2 * e_kt[t] + np.sum(virial))
+    msd += (velos * dt) ** 2
+    diff[t] = 1 / 6 / N / (t + 1) * np.sum(msd)
 temp = e_kt * 2 / (3 * N)
-
 samples = 2
 cv = np.zeros(samples)
 for i in range(samples):
@@ -141,7 +141,6 @@ for i in range(samples):
     interval_stop = interval_start + math.floor((Nt - relaxation_time) / samples)
     std_tmp = np.mean((temp[interval_start:interval_stop] - np.mean(temp[interval_start:interval_stop])) ** 2)
     cv[i] = ((2 / (3 * N) - std_tmp / (np.mean(temp[interval_start:interval_stop]) ** 2)) ** (-1)) / N * 2 / 3
-
 print("Theoretical Cv = ", 3 / T)
 print("Emperical Cv = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
 print("mean temp", np.mean(temp[relaxation_time:]))
@@ -149,7 +148,6 @@ print("mean temp", np.mean(temp[relaxation_time:]))
 # print(avg_temp)
 # print(temp)
 # print(temp)
-
 # print(e_kt)
 # linee_pot, = plt.plot(range(Nt), e_pot, label="Potential energy")
 # line_E, = plt.plot(range(Nt), e_kt + e_pot, label="Total energy")
