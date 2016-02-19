@@ -13,7 +13,7 @@ density = 0.3
 box_size = (N / density) ** (1 / 3)
 dt = 0.004
 relaxation_time = 500
-Nt = 500 + relaxation_time
+Nt = 9500 + relaxation_time
 eps_kb = 125
 e_kt = np.zeros(Nt)
 virial = np.zeros(Nt)
@@ -31,7 +31,7 @@ drPC = 5 / bins
 rPC = np.linspace(0.001, box_size * 0.5, bins)
 nPC = np.zeros([len(rPC)])
 nPCtot = np.zeros([len(rPC)])
-
+PCF = np.zeros([len(rPC)])
 
 @jit
 def calc_forces(locations):
@@ -129,7 +129,27 @@ for t in range(0, Nt):
     msd += vdt * vdt
     diff[t] = np.sum(msd) / (6 * N * (t+1) * dt)
 
+
 nPCavg = nPCtot/Nt
+
+for p in range(len(rPC)):
+
+    PCF[p] = 2*nPCavg[p]/(4*math.pi*rPC[p]*rPC[p]*drPC*density*(N-1))
+
+Strucfac = abs(np.fft.fft(PCF))
+
+plt.figure(1)
+plt.subplot(211)
+plt.plot(Strucfac)
+plt.xlabel(r'r/$\sigma$')
+plt.ylabel('g(r)')
+
+plt.subplot(212)
+plt.plot(rPC, PCF)
+plt.xlabel(r'r/$\sigma$')
+plt.ylabel('g(r)')
+plt.show()
+
 temp = e_kt * 2 / (3 * N)
 pres = density / (3 * N) * (2 * e_kt + virial)
 print(diff)
