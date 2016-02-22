@@ -13,8 +13,8 @@ density = 0.8
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
 dt = 0.004
-relaxation_time = 1000
-Nt = 5000 + relaxation_time
+relaxation_time = 5
+Nt = 20 + relaxation_time
 
 
 # Initialize constants and variables needed for the statistics. Samples is the number of intervals
@@ -47,6 +47,7 @@ rPC = np.linspace(0.001, box_size * 0.5, bins)
 nPC = np.zeros([len(rPC)])
 nPCtot = np.zeros([len(rPC)])
 PCF = np.zeros([len(rPC)])
+nPC_array = np.zeros((samples, bins))
 
 
 @jit
@@ -132,7 +133,6 @@ def make_time_step(locations, velocities, old_f):
 locs, velos, forces = initiate()
 for t in range(0, Nt):
     locs, velos, forces, e_pot[t], virial[t], nPC = make_time_step(locs, velos, forces)
-    nPCtot += nPC
     e_kt[t] = 0.5 * np.sum(velos * velos)
     # Optionally rescale the velocies in order to make temperature constant:
     if t < relaxation_time:
@@ -146,20 +146,25 @@ for t in range(0, Nt):
         d2 = sum(dx * dx) + sum(dy * dy) + sum(dz * dz)
         diff_c[sample_index] = d2 / (6 * N * sample_length * dt)
         distance = np.zeros((N,3))
+        # Now calculate NPc
+        nPC_array[sample_index] = nPCtot
+        nPCtot = 0
         sample_index += 1
     else:
         distance += velos * dt
+        nPCtot += nPC
 
     mom_x[t] = sum(velos[:, 0])
     mom_y[t] = sum(velos[:, 1])
     mom_z[t] = sum(velos[:, 2])
 
+print("npctot = ", nPC_array)
 
 # Calculating the pair correlation function
-nPCavg = nPCtot / Nt
-for p in range(len(rPC)):
-    PCF[p] = 2 * nPCavg[p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
-    
+# nPCavg = nPCtot / Nt
+# for p in range(len(rPC)):
+#     PCF[p] = 2 * nPCavg[p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
+
 
 # Calculating the temperature and pressure
 temp = e_kt * 2 / (3 * N)
@@ -182,10 +187,10 @@ print("mean temp", np.mean(temp[relaxation_time:]))
 
 # PLOTS
 
-plt.plot(rPC, np.ones([len(rPC)]), '--', rPC, PCF)
-plt.xlabel(r'r/$\sigma$')
-plt.ylabel('g(r)')
-plt.show()
+# plt.plot(rPC, np.ones([len(rPC)]), '--', rPC, PCF)
+# plt.xlabel(r'r/$\sigma$')
+# plt.ylabel('g(r)')
+# plt.show()
 
 # print(avg_temp)
 # print(temp)
