@@ -13,8 +13,8 @@ density = 0.8
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
 dt = 0.004
-relaxation_time = 5
-Nt = 20 + relaxation_time
+relaxation_time = 500
+Nt = 2000 + relaxation_time
 
 
 # Initialize constants and variables needed for the statistics. Samples is the number of intervals
@@ -46,7 +46,7 @@ drPC = 1 / bins
 rPC = np.linspace(0.001, box_size * 0.5, bins)
 nPC = np.zeros([len(rPC)])
 nPCtot = np.zeros([len(rPC)])
-PCF = np.zeros([len(rPC)])
+PCF = np.zeros((samples, bins))
 nPC_array = np.zeros((samples, bins))
 
 
@@ -158,7 +158,6 @@ for t in range(0, Nt):
     mom_y[t] = sum(velos[:, 1])
     mom_z[t] = sum(velos[:, 2])
 
-print("npctot = ", nPC_array)
 
 # Calculating the pair correlation function
 # nPCavg = nPCtot / Nt
@@ -181,6 +180,11 @@ for i in range(samples):
     dk2 = np.mean((e_kt[interval_start:interval_stop] - k) ** 2)
     k2 = k * k
     cv[i] = 3 * k2 / (2 * k2 - 3 * N * dk2)
+    # calculate the pair correlation function on multiple intervals.
+    for p in range(len(rPC)):
+        PCF[samples,p] = 2 * nPC_array[samples,p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
+        
+
 print("Theoretical Cv = 1.5")
 print("Emperical Cv = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
 print("mean temp", np.mean(temp[relaxation_time:]))
