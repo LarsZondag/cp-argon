@@ -3,6 +3,7 @@ import math
 import scipy.stats as stats
 from numba import jit
 import matplotlib.pyplot as plt
+import sys
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
@@ -54,7 +55,12 @@ r = np.linspace(0.001, box_size * 0.5, bins)
 Ur = 4 * (r ** (-12) - r ** (-6))
 r[r < math.sqrt(rc2)] = 0
 r2drU = r ** 2 * pc_dr * Ur
-print("Array with all radii above the cut-off radius ", r)
+# print("Array with all radii above the cut-off radius ", r)
+
+# Here we open a new file to write our data in:
+name = "N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + ".txt"
+print(name)
+target = open(name, 'w')
 
 
 @jit
@@ -207,25 +213,40 @@ print("Average potential energy: ", np.mean(e_pot_t_avg), "with error: ", np.std
 
 # PLOTS
 
+fig1 = plt.figure()
 plt.plot(pc_r, np.ones(bins), '--', pc_r, pcf_mean)
 plt.fill_between(pc_r, pcf_mean - pcf_error, pcf_mean + pcf_error)
 plt.xlabel(r'r/$\sigma$')
 plt.ylabel('g(r)')
 plt.show()
-
+fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) +"_pcf.eps", format='eps', dpi=1000)
 # print(avg_temp)
 # print(temp)
 # print(temp)
 # print(e_kin)
-# linee_pot, = plt.plot(range(Nt), e_pot, label="Potential energy")
-# line_E, = plt.plot(range(Nt), e_kin + e_pot, label="Total energy")
-# linee_kin, = plt.plot(range(Nt), e_kin, label="Kinetic energy")
-# # lineMom, = plt.plot(range(Nt), mom, label="Momentum")
-# line_temp, = plt.plot(range(Nt), temp, label="Temperature")
-# # line_avg_temp, = plt.plot(range(len(avg_temp)), avg_temp, label="Average Temperature")
-# # line_cv, = plt.plot(range(Nt), cv, label="Heat Capacity")
-# # line_avg_cv, = plt.plot(range(len(avg_cv)), avg_cv, label="Average Heat Capacity")
-# #
-# #
-# plt.legend(handles=[line_temp])
-# plt.show()
+fig2 = plt.figure()
+ax = plt.subplot(111)
+linee_pot, = plt.plot(range(Nt), e_pot, label="Potential energy")
+line_E, = plt.plot(range(Nt), e_kin + e_pot, label="Total energy")
+linee_kin, = plt.plot(range(Nt), e_kin, label="Kinetic energy")
+box = ax.get_position()
+ax.set_position([box.x0, box.y0 + box.height * 0.1,
+                 box.width, box.height * 0.9])
+plt.legend(handles=[linee_pot,line_E,linee_kin], loc='upper center', bbox_to_anchor=(0.5, -0.05),
+          fancybox=True, shadow=True, ncol=3)
+plt.show()
+fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) +"_energies.eps", format='eps', dpi=1000)
+
+target.write("Emperical C_v = " + repr(np.mean(cv)) + ", with error: " + repr(np.std(cv) / math.sqrt(samples)))
+target.write("\n")
+target.write("Mean temperature: " + repr(np.mean(temp[relaxation_time:])) + " with error: " +
+      repr(np.std(temp[relaxation_time:]) / math.sqrt(samples)))
+target.write("\n")
+target.write("The intended temperature was: " + repr(T))
+target.write("\n")
+target.write("Emprical self-diffusion coefficient: " + repr(np.mean(diff_c)) +  " with error: " + repr(np.std(diff_c) / math.sqrt(samples)))
+target.write("\n")
+target.write("Empirical pressure: " + repr(np.mean(pressure_array)) + " with error: " + repr(np.std(pressure_array) / math.sqrt(samples)))
+target.write("\n")
+target.write("Average potential energy: " + repr(np.mean(e_pot_t_avg)) + "with error: " + repr(np.std(e_pot_t_avg) / math.sqrt(samples)))
+target.close()
