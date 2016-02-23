@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 2
-T = 1
-density = 0.8
+L = 3
+T = 3
+density = 0.3
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
@@ -181,9 +181,12 @@ for i in range(samples):
     k2 = k * k
     cv[i] = 3 * k2 / (2 * k2 - 3 * N * dk2)
     # calculate the pair correlation function on multiple intervals.
-    for p in range(len(rPC)):
-        PCF[samples,p] = 2 * nPC_array[samples,p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
-        
+    for p in range(bins):
+        PCF[i,p] = 2 * nPC_array[i,p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
+
+truePCF = np.mean(PCF,axis=0)/sample_length
+pcf_error = np.std(PCF,axis=0) / math.sqrt(samples)
+
 
 print("Theoretical Cv = 1.5")
 print("Emperical Cv = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
@@ -191,10 +194,11 @@ print("mean temp", np.mean(temp[relaxation_time:]))
 
 # PLOTS
 
-# plt.plot(rPC, np.ones([len(rPC)]), '--', rPC, PCF)
-# plt.xlabel(r'r/$\sigma$')
-# plt.ylabel('g(r)')
-# plt.show()
+plt.plot(rPC, np.ones(bins), '--', rPC, truePCF)
+plt.fill_between(rPC, truePCF-pcf_error, truePCF+pcf_error)
+plt.xlabel(r'r/$\sigma$')
+plt.ylabel('g(r)')
+plt.show()
 
 # print(avg_temp)
 # print(temp)
