@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 2
-T = 0.5
-density = 1.2
+L = 4
+T = 0.75
+density = 1.07
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
@@ -51,10 +51,11 @@ pcf = np.zeros((samples, bins))
 pc_n_array = np.zeros((samples, bins))
 rc2 = 9.0
 r = np.linspace(0.001, box_size * 0.5, bins)
+Ur = 4 * (r ** (-12) - r ** (-6))
 r[r < math.sqrt(rc2)] = 0
-Ur = 4 * (r ** -12 - r ** -6)
+r2drU = r ** 2 * pc_dr * Ur
+print("Array with all radii above the cut-off radius ", r)
 
-print("Array with all radii above the cut-off radius ",r)
 
 @jit
 def calc_forces(locations):
@@ -167,6 +168,7 @@ for t in range(0, Nt):
 # Calculating the temperature and pressure
 temp = e_kin * 2 / (3 * N)
 pres = density / (3 * N) * (2 * e_kin + virial)
+# pres = N* T / ((L * box_size) ** 3) + 1/(3*((L * box_size) ** 3)) * virial
 
 # Here we take a number of samples to determine the Cv over. Then a mean is calculated from these samples
 # And the error is determined according to the standard deviation.
@@ -184,13 +186,12 @@ for i in range(samples):
     # Calculate the pair correlation function on sample's interval. This is evaluated for every bin:
     pcf[i] = 2 * pc_n_array[i] / (4 * math.pi * pc_r ** 2 * pc_dr * density * (N - 1))
     # Determine the time average of the potential Energy:
-    e_pot_t_avg = np.mean(e_pot[interval_start:interval_stop]) + 2*math.pi * N*(N-1)/((L * box_size) ** 3)
-    
+    e_pot_t_avg = np.mean(e_pot[interval_start:interval_stop]) + 2 * math.pi * N * (N - 1) / (
+        (L * box_size) ** 3) * np.sum(r2drU * pcf[i])
 
 # Pair correlation function mean and error calculation:
 pcf_mean = np.mean(pcf, axis=0)
 pcf_error = np.std(pcf, axis=0) / math.sqrt(samples)
-
 
 print("Emperical C_v = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
 print()
@@ -201,6 +202,8 @@ print()
 print("Emprical self-diffusion coefficient: ", np.mean(diff_c), " with error: ", np.std(diff_c) / math.sqrt(samples))
 print()
 print("Empirical pressure: ", np.mean(pressure_array), " with error: ", np.std(pressure_array) / math.sqrt(samples))
+print()
+print("Average potential energy: ", np.mean(e_pot_t_avg), "with error: ", np.std(e_pot_t_avg) / math.sqrt(samples))
 
 # PLOTS
 
