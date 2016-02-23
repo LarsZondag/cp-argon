@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 6
+L = 2
 T = 0.5
 density = 1.2
 
@@ -14,8 +14,7 @@ density = 1.2
 # the system gets to reach a steady state (within this time the thermostat is used).
 dt = 0.004
 relaxation_time = 500
-Nt = 2000 + relaxation_time
-
+Nt = 1000 + relaxation_time
 
 # Initialize constants and variables needed for the statistics. Samples is the number of intervals
 # the measurement will be divided up in. The mean of each quantity will be calculated over this number of
@@ -24,14 +23,16 @@ samples = 5
 sample_index = 0
 sample_length = math.floor((Nt - relaxation_time) / samples)
 cv = np.zeros(samples)
+pressure_array = np.zeros(samples)
 distance = np.zeros(samples)
 diff_c = np.zeros(samples)
+e_pot_t_avg = np.zeros(samples)
 
 # Initialize all the variables needed for the calculations
 N = 4 * L ** 3
 box_size = (N / density) ** (1 / 3)
 eps_kb = 125
-e_kt = np.zeros(Nt)
+e_kin = np.zeros(Nt)
 virial = np.zeros(Nt)
 mom_x = np.zeros(Nt)
 mom_y = np.zeros(Nt)
@@ -42,21 +43,25 @@ pres = np.zeros(Nt)
 diff = np.zeros(Nt)
 distance = np.zeros((N, 3))
 bins = 150
-drPC = 1 / bins
-rPC = np.linspace(0.001, box_size * 0.5, bins)
-nPC = np.zeros([len(rPC)])
-nPCtot = np.zeros([len(rPC)])
-PCF = np.zeros((samples, bins))
-nPC_array = np.zeros((samples, bins))
+pc_dr = 1 / bins
+pc_r = np.linspace(0.001, box_size * 0.5, bins)
+pc_n = np.zeros([bins])
+pc_n_tot = np.zeros([bins])
+pcf = np.zeros((samples, bins))
+pc_n_array = np.zeros((samples, bins))
+rc2 = 9.0
+r = np.linspace(0.001, box_size * 0.5, bins)
+r[r < math.sqrt(rc2)] = 0
+Ur = 4 * (r ** -12 - r ** -6)
 
+print("Array with all radii above the cut-off radius ",r)
 
 @jit
 def calc_forces(locations):
-    rc2 = 9.0
     f = np.zeros((N, 3))
     virial = np.zeros(N)
     potential = 0
-    nPC = np.zeros([len(rPC)])
+    pc_n = np.zeros([bins])
     # These for-loops fill the distances array with the appropriate distance. Notice distances = -distances^T
     # In the loop a check is made to make sure the right images are used (periodic boundary conditions)
     for i in range(N):
@@ -90,10 +95,10 @@ def calc_forces(locations):
                 common_virial = fx * dx + fy * dy + fz * dz
                 virial[i] += common_virial
                 virial[j] -= common_virial
-            for k in range(len(rPC)):
-                if (r2 > rPC[k] * rPC[k]) and (r2 < ((rPC[k] + drPC) * (rPC[k] + drPC))):
-                    nPC[k] += 1
-    return f, potential, sum(virial), nPC
+            for k in range(bins):
+                if pc_r[k] * pc_r[k] < r2 < (pc_r[k] + pc_dr) * (pc_r[k] + pc_dr):
+                    pc_n[k] += 1
+    return f, potential, sum(virial), pc_n
 
 
 def initiate():
@@ -117,7 +122,7 @@ def initiate():
     velocities -= np.mean(velocities, axis=0)
     energy_kinetic = 0.5 * np.sum(velocities * velocities)
     velocities *= math.sqrt(N * 3 * T / (2 * energy_kinetic))
-    forces, potential, virial, nPC = calc_forces(locations)
+    forces, potential, virial, pc_n = calc_forces(locations)
     return locations, velocities, forces
 
 
@@ -125,77 +130,82 @@ def make_time_step(locations, velocities, old_f):
     velocities += 0.5 * old_f * dt
     locations += velocities * dt
     locations = np.mod(locations, box_size)
-    new_f, potential, virial, nPC = calc_forces(locations)
+    new_f, potential, virial, pc_n = calc_forces(locations)
     velocities += 0.5 * new_f * dt
-    return locations, velocities, new_f, potential, virial, nPC
+    return locations, velocities, new_f, potential, virial, pc_n
 
 
 locs, velos, forces = initiate()
 for t in range(0, Nt):
-    locs, velos, forces, e_pot[t], virial[t], nPC = make_time_step(locs, velos, forces)
-    e_kt[t] = 0.5 * np.sum(velos * velos)
+    locs, velos, forces, e_pot[t], virial[t], pc_n = make_time_step(locs, velos, forces)
+    e_kin[t] = 0.5 * np.sum(velos * velos)
     # Optionally rescale the velocies in order to make temperature constant:
     if t < relaxation_time:
-        velos *= math.sqrt(N * 3 * T / (2 * e_kt[t]))
-        e_kt[t] = 0.5 * np.sum(velos * velos)
-    elif (t + 1 - relaxation_time) % sample_length == 0 and t > (relaxation_time + sample_length - samples): # Calculation of the self-diffusion coefficient:
+        velos *= math.sqrt(N * 3 * T / (2 * e_kin[t]))
+        e_kin[t] = 0.5 * np.sum(velos * velos)
+    elif (t + 1 - relaxation_time) % sample_length == 0 and t > (
+                    relaxation_time + sample_length - samples):  # Calculation of the self-diffusion coefficient:
         print((t + 1 - relaxation_time))
-        dx = distance[:,0]
-        dy = distance[:,1]
-        dz = distance[:,2]
-        d2 = sum(dx * dx) + sum(dy * dy) + sum(dz * dz)
+        # Calculate the diffusion coefficient for this interval:
+        d2 = np.sum(distance ** 2)
         diff_c[sample_index] = d2 / (6 * N * sample_length * dt)
-        distance = np.zeros((N,3))
-        # Now calculate NPc
-        nPC_array[sample_index] = nPCtot
-        nPCtot = 0
+        # Calculate NPc for this interval:
+        pc_n_array[sample_index] = pc_n_tot / sample_length
+        # Reset the variables needed for the calculations:
+        distance = np.zeros((N, 3))
+        pc_n_tot = 0
         sample_index += 1
+
     else:
         distance += velos * dt
-        nPCtot += nPC
+        pc_n_tot += pc_n
 
     mom_x[t] = sum(velos[:, 0])
     mom_y[t] = sum(velos[:, 1])
     mom_z[t] = sum(velos[:, 2])
 
-
-# Calculating the pair correlation function
-# nPCavg = nPCtot / Nt
-# for p in range(len(rPC)):
-#     PCF[p] = 2 * nPCavg[p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
-
-
 # Calculating the temperature and pressure
-temp = e_kt * 2 / (3 * N)
-pres = density / (3 * N) * (2 * e_kt + virial)
-print(diff_c)
+temp = e_kin * 2 / (3 * N)
+pres = density / (3 * N) * (2 * e_kin + virial)
 
 # Here we take a number of samples to determine the Cv over. Then a mean is calculated from these samples
 # And the error is determined according to the standard deviation.
-
 for i in range(samples):
+    # Determine where the sample's interval starts and stops, the quantities will be calculated over this region
     interval_start = relaxation_time + i * sample_length
     interval_stop = interval_start + sample_length - 1
-    k = np.mean(e_kt[interval_start:interval_stop])
-    dk2 = np.mean((e_kt[interval_start:interval_stop] - k) ** 2)
-    k2 = k * k
+    # Calculation for the specific heat:
+    k = np.mean(e_kin[interval_start:interval_stop])
+    dk2 = np.mean((e_kin[interval_start:interval_stop] - k) ** 2)
+    k2 = k ** 2
     cv[i] = 3 * k2 / (2 * k2 - 3 * N * dk2)
-    # calculate the pair correlation function on multiple intervals.
-    for p in range(bins):
-        PCF[i,p] = 2 * nPC_array[i,p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
+    # Calculate the pressure:
+    pressure_array[i] = np.mean(pres[interval_start:interval_stop])
+    # Calculate the pair correlation function on sample's interval. This is evaluated for every bin:
+    pcf[i] = 2 * pc_n_array[i] / (4 * math.pi * pc_r ** 2 * pc_dr * density * (N - 1))
+    # Determine the time average of the potential Energy:
+    e_pot_t_avg = np.mean(e_pot[interval_start:interval_stop]) + 2*math.pi * N*(N-1)/((L * box_size) ** 3)
+    
 
-truePCF = np.mean(PCF,axis=0)/sample_length
-pcf_error = np.std(PCF/sample_length,axis=0) / math.sqrt(samples)
+# Pair correlation function mean and error calculation:
+pcf_mean = np.mean(pcf, axis=0)
+pcf_error = np.std(pcf, axis=0) / math.sqrt(samples)
 
 
-print("Theoretical Cv = 1.5")
-print("Emperical Cv = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
-print("mean temp", np.mean(temp[relaxation_time:]))
+print("Emperical C_v = ", np.mean(cv), ", with error: ", np.std(cv) / math.sqrt(samples))
+print()
+print("Mean temperature: ", np.mean(temp[relaxation_time:]), " with error: ",
+      np.std(temp[relaxation_time:]) / math.sqrt(samples))
+print("The intended temperature was: ", T)
+print()
+print("Emprical self-diffusion coefficient: ", np.mean(diff_c), " with error: ", np.std(diff_c) / math.sqrt(samples))
+print()
+print("Empirical pressure: ", np.mean(pressure_array), " with error: ", np.std(pressure_array) / math.sqrt(samples))
 
 # PLOTS
 
-plt.plot(rPC, np.ones(bins), '--', rPC, truePCF)
-plt.fill_between(rPC, truePCF-pcf_error, truePCF+pcf_error)
+plt.plot(pc_r, np.ones(bins), '--', pc_r, pcf_mean)
+plt.fill_between(pc_r, pcf_mean - pcf_error, pcf_mean + pcf_error)
 plt.xlabel(r'r/$\sigma$')
 plt.ylabel('g(r)')
 plt.show()
@@ -203,10 +213,10 @@ plt.show()
 # print(avg_temp)
 # print(temp)
 # print(temp)
-# print(e_kt)
+# print(e_kin)
 # linee_pot, = plt.plot(range(Nt), e_pot, label="Potential energy")
-# line_E, = plt.plot(range(Nt), e_kt + e_pot, label="Total energy")
-# linee_kt, = plt.plot(range(Nt), e_kt, label="Kinetic energy")
+# line_E, = plt.plot(range(Nt), e_kin + e_pot, label="Total energy")
+# linee_kin, = plt.plot(range(Nt), e_kin, label="Kinetic energy")
 # # lineMom, = plt.plot(range(Nt), mom, label="Momentum")
 # line_temp, = plt.plot(range(Nt), temp, label="Temperature")
 # # line_avg_temp, = plt.plot(range(len(avg_temp)), avg_temp, label="Average Temperature")
