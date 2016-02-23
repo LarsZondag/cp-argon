@@ -7,20 +7,20 @@ import sys
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 4
-T = 0.75
-density = 1.07
+L = 5
+T = 1
+density = 0.88
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
 dt = 0.004
-relaxation_time = 500
+relaxation_time = 2500
 Nt = 1000 + relaxation_time
 
 # Initialize constants and variables needed for the statistics. Samples is the number of intervals
 # the measurement will be divided up in. The mean of each quantity will be calculated over this number of
 # samples and the error will be related to the variance between these samples
-samples = 5
+samples = 20
 sample_index = 0
 sample_length = math.floor((Nt - relaxation_time) / samples)
 cv = np.zeros(samples)
@@ -53,8 +53,10 @@ pc_n_array = np.zeros((samples, bins))
 rc2 = 9.0
 r = np.linspace(0.001, box_size * 0.5, bins)
 Ur = 4 * (r ** (-12) - r ** (-6))
+Fr = 24 * r ** (-2) * (2 * r ** (-12) - r ** (-6))
 r[r < math.sqrt(rc2)] = 0
 r2drU = r ** 2 * pc_dr * Ur
+r3drF = r ** 3 * pc_dr * Fr
 # print("Array with all radii above the cut-off radius ", r)
 
 # Here we open a new file to write our data in:
@@ -101,7 +103,7 @@ def calc_forces(locations):
                 potential += 4 * (ir12 - ir6)
                 common_virial = fx * dx + fy * dy + fz * dz
                 virial[i] += common_virial
-                virial[j] -= common_virial
+                virial[j] += common_virial
             for k in range(bins):
                 if pc_r[k] * pc_r[k] < r2 < (pc_r[k] + pc_dr) * (pc_r[k] + pc_dr):
                     pc_n[k] += 1
@@ -153,6 +155,7 @@ for t in range(0, Nt):
     elif (t + 1 - relaxation_time) % sample_length == 0 and t > (
                     relaxation_time + sample_length - samples):  # Calculation of the self-diffusion coefficient:
         print((t + 1 - relaxation_time))
+        print("On sample", sample_index, "/", samples)
         # Calculate the diffusion coefficient for this interval:
         d2 = np.sum(distance ** 2)
         diff_c[sample_index] = d2 / (6 * N * sample_length * dt)
@@ -173,8 +176,7 @@ for t in range(0, Nt):
 
 # Calculating the temperature and pressure
 temp = e_kin * 2 / (3 * N)
-pres = density / (3 * N) * (2 * e_kin + virial)
-# pres = N* T / ((L * box_size) ** 3) + 1/(3*((L * box_size) ** 3)) * virial
+pres = density / N * (temp * N + 1 / 3 * virial)
 
 # Here we take a number of samples to determine the Cv over. Then a mean is calculated from these samples
 # And the error is determined according to the standard deviation.
@@ -187,13 +189,14 @@ for i in range(samples):
     dk2 = np.mean((e_kin[interval_start:interval_stop] - k) ** 2)
     k2 = k ** 2
     cv[i] = 3 * k2 / (2 * k2 - 3 * N * dk2)
-    # Calculate the pressure:
-    pressure_array[i] = np.mean(pres[interval_start:interval_stop])
     # Calculate the pair correlation function on sample's interval. This is evaluated for every bin:
     pcf[i] = 2 * pc_n_array[i] / (4 * math.pi * pc_r ** 2 * pc_dr * density * (N - 1))
     # Determine the time average of the potential Energy:
     e_pot_t_avg = np.mean(e_pot[interval_start:interval_stop]) + 2 * math.pi * N * (N - 1) / (
         (L * box_size) ** 3) * np.sum(r2drU * pcf[i])
+    # Calculate the pressure:
+    pressure_array[i] = np.mean(pres[interval_start:interval_stop]) - 2 * math.pi * N / (
+    3 * (L * box_size) ** 3) * np.sum(r3drF * pcf[i])
 
 # Pair correlation function mean and error calculation:
 pcf_mean = np.mean(pcf, axis=0)
@@ -219,7 +222,7 @@ plt.fill_between(pc_r, pcf_mean - pcf_error, pcf_mean + pcf_error)
 plt.xlabel(r'r/$\sigma$')
 plt.ylabel('g(r)')
 plt.show()
-fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) +"_pcf.eps", format='eps', dpi=1000)
+fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_pcf.eps", format='eps', dpi=1000)
 # print(avg_temp)
 # print(temp)
 # print(temp)
@@ -232,21 +235,24 @@ linee_kin, = plt.plot(range(Nt), e_kin, label="Kinetic energy")
 box = ax.get_position()
 ax.set_position([box.x0, box.y0 + box.height * 0.1,
                  box.width, box.height * 0.9])
-plt.legend(handles=[linee_pot,line_E,linee_kin], loc='upper center', bbox_to_anchor=(0.5, -0.05),
-          fancybox=True, shadow=True, ncol=3)
+plt.legend(handles=[linee_pot, line_E, linee_kin], loc='upper center', bbox_to_anchor=(0.5, -0.05),
+           fancybox=True, shadow=True, ncol=3)
 plt.show()
-fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) +"_energies.eps", format='eps', dpi=1000)
+fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_energies.eps", format='eps', dpi=1000)
 
 target.write("Emperical C_v = " + repr(np.mean(cv)) + ", with error: " + repr(np.std(cv) / math.sqrt(samples)))
 target.write("\n")
 target.write("Mean temperature: " + repr(np.mean(temp[relaxation_time:])) + " with error: " +
-      repr(np.std(temp[relaxation_time:]) / math.sqrt(samples)))
+             repr(np.std(temp[relaxation_time:]) / math.sqrt(samples)))
 target.write("\n")
 target.write("The intended temperature was: " + repr(T))
 target.write("\n")
-target.write("Emprical self-diffusion coefficient: " + repr(np.mean(diff_c)) +  " with error: " + repr(np.std(diff_c) / math.sqrt(samples)))
+target.write("Emprical self-diffusion coefficient: " + repr(np.mean(diff_c)) + " with error: " + repr(
+    np.std(diff_c) / math.sqrt(samples)))
 target.write("\n")
-target.write("Empirical pressure: " + repr(np.mean(pressure_array)) + " with error: " + repr(np.std(pressure_array) / math.sqrt(samples)))
+target.write("Empirical pressure: " + repr(np.mean(pressure_array)) + " with error: " + repr(
+    np.std(pressure_array) / math.sqrt(samples)))
 target.write("\n")
-target.write("Average potential energy: " + repr(np.mean(e_pot_t_avg)) + "with error: " + repr(np.std(e_pot_t_avg) / math.sqrt(samples)))
+target.write("Average potential energy: " + repr(np.mean(e_pot_t_avg)) + "with error: " + repr(
+    np.std(e_pot_t_avg) / math.sqrt(samples)))
 target.close()
