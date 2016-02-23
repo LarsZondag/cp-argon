@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 3
-T = 3
-density = 0.3
+L = 6
+T = 0.5
+density = 1.2
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
@@ -185,7 +185,7 @@ for i in range(samples):
         PCF[i,p] = 2 * nPC_array[i,p] / (4 * math.pi * rPC[p] * rPC[p] * drPC * density * (N - 1))
 
 truePCF = np.mean(PCF,axis=0)/sample_length
-pcf_error = np.std(PCF,axis=0) / math.sqrt(samples)
+pcf_error = np.std(PCF/sample_length,axis=0) / math.sqrt(samples)
 
 
 print("Theoretical Cv = 1.5")
