@@ -14,8 +14,8 @@ density = 0.88
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
 dt = 0.004
-relaxation_time = 500
-Nt = 1000 + relaxation_time
+relaxation_time = 50
+Nt = 100 + relaxation_time
 
 # Initialize constants and variables needed for the statistics. Samples is the number of intervals
 # the measurement will be divided up in. The mean of each quantity will be calculated over this number of
@@ -219,10 +219,13 @@ print("Average potential energy: ", np.mean(e_pot_t_avg), "with error: ", np.std
 # PLOTS
 
 fig1 = plt.figure()
-plt.plot(pc_r, np.ones(bins), '--', pc_r, pcf_mean)
-plt.fill_between(pc_r, pcf_mean - pcf_error, pcf_mean + pcf_error)
+plt.plot(pc_r, np.ones(bins), '--', label='g(r)=1')
+plt.plot(pc_r, pcf_mean, label='Pair correlation function')
+plt.fill_between(pc_r, pcf_mean - pcf_error, pcf_mean + pcf_error, label='error')
 plt.xlabel(r'r/$\sigma$')
 plt.ylabel('g(r)')
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
+           fancybox=True, shadow=True, ncol=3)
 plt.show()
 fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_pcf.eps", format='eps', dpi=1000)
 # print(avg_temp)
