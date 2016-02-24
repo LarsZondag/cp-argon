@@ -14,8 +14,8 @@ density = 0.7
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
 dt = 0.004
-relaxation_time = 2500
-Nt = 1000 + relaxation_time
+relaxation_time = 500
+Nt = 5000 + relaxation_time
 
 # Initialize constants and variables needed for the statistics. Samples is the number of intervals
 # the measurement will be divided up in. The mean of each quantity will be calculated over this number of
@@ -56,7 +56,7 @@ Ur = 4 * (r ** (-12) - r ** (-6))
 Fr = 24 * r ** (-2) * (2 * r ** (-12) - r ** (-6))
 r[r < math.sqrt(rc2)] = 0
 r2drU = r ** 2 * pc_dr * Ur
-r3drF = r ** 3 * pc_dr * Fr
+r3drF = r ** 3 * pc_dr * (-Fr)
 # print("Array with all radii above the cut-off radius ", r)
 
 # Here we open a new file to write our data in:
@@ -102,8 +102,8 @@ def calc_forces(locations):
                 f[j, 2] -= fz
                 potential += 4 * (ir12 - ir6)
                 common_virial = fx * dx + fy * dy + fz * dz
-                virial[i] += common_virial
-                virial[j] += common_virial
+                virial[i] -= common_virial
+                #virial[j] += common_virial
             for k in range(bins):
                 if pc_r[k] * pc_r[k] < r2 < (pc_r[k] + pc_dr) * (pc_r[k] + pc_dr):
                     pc_n[k] += 1
@@ -195,7 +195,7 @@ for i in range(samples):
     e_pot_t_avg = np.mean(e_pot[interval_start:interval_stop]) + 2 * math.pi * N * (N - 1) / (
         (L * box_size) ** 3) * np.sum(r2drU * pcf[i])
     # Calculate the pressure:
-    pres = 1 + 1/(3 * N * T) * virial + 2*math.pi*density/(3*T) * np.sum(r3drF*pcf[i])
+    pres = 1 - 1/(3 * N * temp) * virial - 2*math.pi*density/(3 * temp) * np.sum(r3drF*pcf[i])
     pressure_array[i] = np.mean(pres[interval_start:interval_stop])# - 2 * math.pi * N / (
     #3 * (L * box_size) ** 3) * np.sum(r3drF * pcf[i])
 
@@ -228,6 +228,7 @@ fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_pcf.eps"
 # print(temp)
 # print(temp)
 # print(e_kin)
+print(virial)
 fig2 = plt.figure()
 ax = plt.subplot(111)
 linee_pot, = plt.plot(range(Nt), e_pot, label="Potential energy")
