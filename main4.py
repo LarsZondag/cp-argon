@@ -9,7 +9,7 @@ import sys
 # Each FCC cell contains 4 atoms.
 L = 5
 T = 1
-density = 0.88
+density = 0.7
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
@@ -176,7 +176,7 @@ for t in range(0, Nt):
 
 # Calculating the temperature and pressure
 temp = e_kin * 2 / (3 * N)
-pres = density / N * (temp * N + 1 / 3 * virial)
+#pres = density / N * (temp * N + 1 / 3 * virial)
 
 # Here we take a number of samples to determine the Cv over. Then a mean is calculated from these samples
 # And the error is determined according to the standard deviation.
@@ -195,8 +195,9 @@ for i in range(samples):
     e_pot_t_avg = np.mean(e_pot[interval_start:interval_stop]) + 2 * math.pi * N * (N - 1) / (
         (L * box_size) ** 3) * np.sum(r2drU * pcf[i])
     # Calculate the pressure:
-    pressure_array[i] = np.mean(pres[interval_start:interval_stop]) - 2 * math.pi * N / (
-    3 * (L * box_size) ** 3) * np.sum(r3drF * pcf[i])
+    pres = 1 + 1/(3 * N * T) * virial + 2*math.pi*density/(3*T) * np.sum(r3drF*pcf[i])
+    pressure_array[i] = np.mean(pres[interval_start:interval_stop])# - 2 * math.pi * N / (
+    #3 * (L * box_size) ** 3) * np.sum(r3drF * pcf[i])
 
 # Pair correlation function mean and error calculation:
 pcf_mean = np.mean(pcf, axis=0)
@@ -256,3 +257,4 @@ target.write("\n")
 target.write("Average potential energy: " + repr(np.mean(e_pot_t_avg)) + "with error: " + repr(
     np.std(e_pot_t_avg) / math.sqrt(samples)))
 target.close()
+
