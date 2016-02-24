@@ -9,13 +9,13 @@ import sys
 # Each FCC cell contains 4 atoms.
 L = 5
 T = 1
-density = 0.7
+density = 0.88
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
 dt = 0.004
 relaxation_time = 500
-Nt = 5000 + relaxation_time
+Nt = 1000 + relaxation_time
 
 # Initialize constants and variables needed for the statistics. Samples is the number of intervals
 # the measurement will be divided up in. The mean of each quantity will be calculated over this number of
@@ -68,7 +68,8 @@ target = open(name, 'w')
 @jit
 def calc_forces(locations):
     f = np.zeros((N, 3))
-    virial = np.zeros(N)
+    virial=0
+    #virial = np.zeros(N)
     potential = 0
     pc_n = np.zeros([bins])
     # These for-loops fill the distances array with the appropriate distance. Notice distances = -distances^T
@@ -102,12 +103,12 @@ def calc_forces(locations):
                 f[j, 2] -= fz
                 potential += 4 * (ir12 - ir6)
                 common_virial = fx * dx + fy * dy + fz * dz
-                virial[i] -= common_virial
+                virial -= common_virial
                 #virial[j] += common_virial
             for k in range(bins):
                 if pc_r[k] * pc_r[k] < r2 < (pc_r[k] + pc_dr) * (pc_r[k] + pc_dr):
                     pc_n[k] += 1
-    return f, potential, sum(virial), pc_n
+    return f, potential, virial, pc_n
 
 
 def initiate():
@@ -146,7 +147,7 @@ def make_time_step(locations, velocities, old_f):
 
 locs, velos, forces = initiate()
 for t in range(0, Nt):
-    locs, velos, forces, e_pot[t], virial[t], pc_n = make_time_step(locs, velos, forces)
+    locs, velos, forces, e_pot[t], virial, pc_n = make_time_step(locs, velos, forces)
     e_kin[t] = 0.5 * np.sum(velos * velos)
     # Optionally rescale the velocies in order to make temperature constant:
     if t < relaxation_time:
