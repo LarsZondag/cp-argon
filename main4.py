@@ -7,20 +7,20 @@ import sys
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 5
+L = 4
 T = 1
-density = 0.88
+density = 0.8
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
 dt = 0.004
-relaxation_time = 500
-Nt = 1000 + relaxation_time
+relaxation_time = 2500
+Nt = 100000 + relaxation_time
 
 # Initialize constants and variables needed for the statistics. Samples is the number of intervals
 # the measurement will be divided up in. The mean of each quantity will be calculated over this number of
 # samples and the error will be related to the variance between these samples
-samples = 20
+samples = 3
 sample_index = 0
 sample_length = math.floor((Nt - relaxation_time) / samples)
 cv = np.zeros(samples)
@@ -39,7 +39,6 @@ mom_x = np.zeros(Nt)
 mom_y = np.zeros(Nt)
 mom_z = np.zeros(Nt)
 e_pot = np.zeros(Nt)
-temp = np.zeros(Nt)
 pres = np.zeros(Nt)
 diff = np.zeros(Nt)
 distance = np.zeros((N, 3))
@@ -51,13 +50,10 @@ pc_n_tot = np.zeros([bins])
 pcf = np.zeros((samples, bins))
 pc_n_array = np.zeros((samples, bins))
 rc2 = 9.0
-r = np.linspace(0.001, box_size * 0.5, bins)
-Ur = 4 * (r ** (-12) - r ** (-6))
-Fr = 24 * r ** (-2) * (2 * r ** (-12) - r ** (-6))
-r[r < math.sqrt(rc2)] = 0
-r2drU = r ** 2 * pc_dr * Ur
-r3drF = r ** 3 * pc_dr * (-Fr)
-# print("Array with all radii above the cut-off radius ", r)
+e_pot_correction = 8/3 * math.pi * density * (N-1) / math.sqrt(rc2) * (1/3 * 1 / (rc2 ** 4) - 1 / rc2)
+pres_correction = 48 * math.pi * density / (T * 9 * math.sqrt(rc2)) * (2 / (3 * rc2 ** 4) - 1 / rc2)
+print("e_pot_correction = ", e_pot_correction)
+print("pressure_correction = ",pres_correction)
 
 # Here we open a new file to write our data in:
 name = "N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + ".txt"
@@ -69,7 +65,6 @@ target = open(name, 'w')
 def calc_forces(locations):
     f = np.zeros((N, 3))
     virial=0
-    #virial = np.zeros(N)
     potential = 0
     pc_n = np.zeros([bins])
     # These for-loops fill the distances array with the appropriate distance. Notice distances = -distances^T
@@ -102,9 +97,7 @@ def calc_forces(locations):
                 f[j, 1] -= fy
                 f[j, 2] -= fz
                 potential += 4 * (ir12 - ir6)
-                common_virial = fx * dx + fy * dy + fz * dz
-                virial -= common_virial
-                #virial[j] += common_virial
+                virial -= 24 * (2 * ir12 - ir6)
             for k in range(bins):
                 if pc_r[k] * pc_r[k] < r2 < (pc_r[k] + pc_dr) * (pc_r[k] + pc_dr):
                     pc_n[k] += 1
@@ -147,14 +140,14 @@ def make_time_step(locations, velocities, old_f):
 
 locs, velos, forces = initiate()
 for t in range(0, Nt):
-    locs, velos, forces, e_pot[t], virial, pc_n = make_time_step(locs, velos, forces)
+    locs, velos, forces, e_pot[t], virial[t], pc_n = make_time_step(locs, velos, forces)
     e_kin[t] = 0.5 * np.sum(velos * velos)
     # Optionally rescale the velocies in order to make temperature constant:
     if t < relaxation_time:
         velos *= math.sqrt(N * 3 * T / (2 * e_kin[t]))
         e_kin[t] = 0.5 * np.sum(velos * velos)
     elif (t + 1 - relaxation_time) % sample_length == 0 and t > (
-                    relaxation_time + sample_length - samples):  # Calculation of the self-diffusion coefficient:
+                    relaxation_time + sample_length - samples):  #Processing of this sample:
         print((t + 1 - relaxation_time))
         print("On sample", sample_index, "/", samples)
         # Calculate the diffusion coefficient for this interval:
@@ -177,7 +170,6 @@ for t in range(0, Nt):
 
 # Calculating the temperature and pressure
 temp = e_kin * 2 / (3 * N)
-#pres = density / N * (temp * N + 1 / 3 * virial)
 
 # Here we take a number of samples to determine the Cv over. Then a mean is calculated from these samples
 # And the error is determined according to the standard deviation.
@@ -193,12 +185,11 @@ for i in range(samples):
     # Calculate the pair correlation function on sample's interval. This is evaluated for every bin:
     pcf[i] = 2 * pc_n_array[i] / (4 * math.pi * pc_r ** 2 * pc_dr * density * (N - 1))
     # Determine the time average of the potential Energy:
-    e_pot_t_avg = np.mean(e_pot[interval_start:interval_stop]) + 2 * math.pi * N * (N - 1) / (
-        (L * box_size) ** 3) * np.sum(r2drU * pcf[i])
+    e_pot_t_avg[i] = np.mean(e_pot[interval_start:interval_stop]) + e_pot_correction
     # Calculate the pressure:
-    pres = 1 - 1/(3 * N * temp) * virial - 2*math.pi*density/(3 * temp) * np.sum(r3drF*pcf[i])
-    pressure_array[i] = np.mean(pres[interval_start:interval_stop])# - 2 * math.pi * N / (
-    #3 * (L * box_size) ** 3) * np.sum(r3drF * pcf[i])
+    mean_temp = np.mean(temp[interval_start:interval_stop])
+    pres[interval_start:interval_stop] = 1 - 1/(3 * N * temp[interval_start:interval_stop]) * virial[interval_start:interval_stop] + pres_correction
+    pressure_array[i] = np.mean(pres[interval_start:interval_stop])
 
 # Pair correlation function mean and error calculation:
 pcf_mean = np.mean(pcf, axis=0)
@@ -216,32 +207,7 @@ print("Empirical pressure: ", np.mean(pressure_array), " with error: ", np.std(p
 print()
 print("Average potential energy: ", np.mean(e_pot_t_avg), "with error: ", np.std(e_pot_t_avg) / math.sqrt(samples))
 
-# PLOTS
-
-fig1 = plt.figure()
-plt.plot(pc_r, np.ones(bins), '--', pc_r, pcf_mean)
-plt.fill_between(pc_r, pcf_mean - pcf_error, pcf_mean + pcf_error)
-plt.xlabel(r'r/$\sigma$')
-plt.ylabel('g(r)')
-plt.show()
-fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_pcf.eps", format='eps', dpi=1000)
-# print(avg_temp)
-# print(temp)
-# print(temp)
-# print(e_kin)
-print(virial)
-fig2 = plt.figure()
-ax = plt.subplot(111)
-linee_pot, = plt.plot(range(Nt), e_pot, label="Potential energy")
-line_E, = plt.plot(range(Nt), e_kin + e_pot, label="Total energy")
-linee_kin, = plt.plot(range(Nt), e_kin, label="Kinetic energy")
-box = ax.get_position()
-ax.set_position([box.x0, box.y0 + box.height * 0.1,
-                 box.width, box.height * 0.9])
-plt.legend(handles=[linee_pot, line_E, linee_kin], loc='upper center', bbox_to_anchor=(0.5, -0.05),
-           fancybox=True, shadow=True, ncol=3)
-plt.show()
-fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_energies.eps", format='eps', dpi=1000)
+# Write data to a text file:
 
 target.write("Emperical C_v = " + repr(np.mean(cv)) + ", with error: " + repr(np.std(cv) / math.sqrt(samples)))
 target.write("\n")
@@ -259,4 +225,36 @@ target.write("\n")
 target.write("Average potential energy: " + repr(np.mean(e_pot_t_avg)) + "with error: " + repr(
     np.std(e_pot_t_avg) / math.sqrt(samples)))
 target.close()
+
+# PLOTS
+
+fig1 = plt.figure()
+ax1 = plt.subplot(111)
+plt.plot(pc_r, np.ones(bins), '--', label='g(r)=1')
+plt.plot(pc_r, pcf_mean, label='Pair correlation function')
+plt.fill_between(pc_r, pcf_mean - pcf_error, pcf_mean + pcf_error, label='error')
+plt.xlabel(r'r/$\sigma$')
+plt.ylabel('g(r)')
+box = ax1.get_position()
+ax1.set_position([box.x0, box.y0 + box.height * 0.1,
+                 box.width, box.height * 0.9])
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
+            fancybox=True, shadow=True, ncol=3)
+plt.show()
+fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_pcf.eps", format='eps', dpi=1000)
+
+fig2 = plt.figure()
+ax = plt.subplot(111)
+linee_pot, = plt.plot(range(Nt), e_pot, label="Potential energy")
+line_E, = plt.plot(range(Nt), e_kin + e_pot, label="Total energy")
+linee_kin, = plt.plot(range(Nt), e_kin, label="Kinetic energy")
+box = ax.get_position()
+ax.set_position([box.x0, box.y0 + box.height * 0.1,
+                 box.width, box.height * 0.9])
+plt.legend(handles=[linee_pot, line_E, linee_kin], loc='upper center', bbox_to_anchor=(0.5, -0.05),
+           fancybox=True, shadow=True, ncol=3)
+plt.show()
+fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_energies.eps", format='eps', dpi=1000)
+
+
 
