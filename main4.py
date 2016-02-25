@@ -7,9 +7,9 @@ import sys
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 4
-T = 1
-density = 0.8
+L = 6
+T = 3
+density = 0.3
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
@@ -42,15 +42,15 @@ e_pot = np.zeros(Nt)
 pres = np.zeros(Nt)
 diff = np.zeros(Nt)
 distance = np.zeros((N, 3))
-bins = 150
-pc_dr = 1 / bins
-pc_r = np.linspace(0.001, box_size * 0.5, bins)
+bins = 300
+pc_r = np.linspace(0.001, box_size, bins)
+pc_dr = box_size / bins
 pc_n = np.zeros([bins])
 pc_n_tot = np.zeros([bins])
 pcf = np.zeros((samples, bins))
 pc_n_array = np.zeros((samples, bins))
 rc2 = 9.0
-e_pot_correction = 8/3 * math.pi * density * (N-1) / math.sqrt(rc2) * (1/3 * 1 / (rc2 ** 4) - 1 / rc2)
+e_pot_correction = 8 * math.pi * density * (N-1) / (3 * math.sqrt(rc2)) * (1 / (3 * rc2 ** 4) - 1 / rc2)
 pres_correction = 48 * math.pi * density / (T * 9 * math.sqrt(rc2)) * (2 / (3 * rc2 ** 4) - 1 / rc2)
 print("e_pot_correction = ", e_pot_correction)
 print("pressure_correction = ",pres_correction)
@@ -66,7 +66,8 @@ def calc_forces(locations):
     f = np.zeros((N, 3))
     virial=0
     potential = 0
-    pc_n = np.zeros([bins])
+    pc_n = np.zeros(shape=(bins,))
+    # distances = np.zeros(bins)
     # These for-loops fill the distances array with the appropriate distance. Notice distances = -distances^T
     # In the loop a check is made to make sure the right images are used (periodic boundary conditions)
     for i in range(N):
@@ -86,7 +87,7 @@ def calc_forces(locations):
                 ir6 = ir2 * ir2 * ir2
                 ir12 = ir6 * ir6
                 # Implement Lennard-Jones
-                common_force_factor = 24 * ir2 * (2 * ir12 - ir6)  # * dis_vec
+                common_force_factor = 24 * ir2 * (2 * ir12 - ir6)
                 fx = common_force_factor * dx
                 fy = common_force_factor * dy
                 fz = common_force_factor * dz
@@ -98,9 +99,8 @@ def calc_forces(locations):
                 f[j, 2] -= fz
                 potential += 4 * (ir12 - ir6)
                 virial -= 24 * (2 * ir12 - ir6)
-            for k in range(bins):
-                if pc_r[k] * pc_r[k] < r2 < (pc_r[k] + pc_dr) * (pc_r[k] + pc_dr):
-                    pc_n[k] += 1
+            r = np.sqrt(r2)
+            pc_n[int(r/pc_dr)] += 1
     return f, potential, virial, pc_n
 
 
@@ -157,7 +157,7 @@ for t in range(0, Nt):
         pc_n_array[sample_index] = pc_n_tot / sample_length
         # Reset the variables needed for the calculations:
         distance = np.zeros((N, 3))
-        pc_n_tot = 0
+        pc_n_tot = np.zeros((bins,))
         sample_index += 1
 
     else:
@@ -234,6 +234,7 @@ plt.plot(pc_r, pcf_mean, label='Pair correlation function')
 plt.fill_between(pc_r, pcf_mean - pcf_error, pcf_mean + pcf_error, label='error')
 plt.xlabel(r'r/$\sigma$')
 plt.ylabel('g(r)')
+plt.xlim([0,0.5*box_size])
 box = ax1.get_position()
 ax1.set_position([box.x0, box.y0 + box.height * 0.1,
                  box.width, box.height * 0.9])
@@ -254,6 +255,20 @@ plt.legend(handles=[linee_pot, line_E, linee_kin], loc='upper center', bbox_to_a
            fancybox=True, shadow=True, ncol=3)
 plt.show()
 fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_energies.eps", format='eps', dpi=1000)
+
+fig3 = plt.figure()
+ax = plt.subplot(111)
+line_mom_x, = plt.plot(range(Nt), mom_x, label="$p_x$")
+line_mom_y, = plt.plot(range(Nt), mom_y, label="$p_y$")
+line_mom_z, = plt.plot(range(Nt), mom_z, label="$p_z$")
+box = ax.get_position()
+plt.ylim([-1, 1])
+ax.set_position([box.x0, box.y0 + box.height * 0.1,
+                 box.width, box.height * 0.9])
+plt.legend(handles=[line_mom_x, line_mom_y, line_mom_z], loc='upper center', bbox_to_anchor=(0.5, -0.05),
+           fancybox=True, shadow=True, ncol=3)
+plt.show()
+fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_momenta.eps", format='eps', dpi=1000)
 
 
 
