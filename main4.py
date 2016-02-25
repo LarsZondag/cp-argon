@@ -187,7 +187,6 @@ for i in range(samples):
     # Determine the time average of the potential Energy:
     e_pot_t_avg[i] = np.mean(e_pot[interval_start:interval_stop]) + e_pot_correction
     # Calculate the pressure:
-    mean_temp = np.mean(temp[interval_start:interval_stop])
     pres[interval_start:interval_stop] = 1 - 1/(3 * N * temp[interval_start:interval_stop]) * virial[interval_start:interval_stop] + pres_correction
     pressure_array[i] = np.mean(pres[interval_start:interval_stop])
 
