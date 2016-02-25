@@ -8,8 +8,8 @@ import sys
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
 L = 6
-T = 3
-density = 0.3
+T = 1
+density = 0.8
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
@@ -20,7 +20,7 @@ Nt = 100000 + relaxation_time
 # Initialize constants and variables needed for the statistics. Samples is the number of intervals
 # the measurement will be divided up in. The mean of each quantity will be calculated over this number of
 # samples and the error will be related to the variance between these samples
-samples = 3
+samples = 20
 sample_index = 0
 sample_length = math.floor((Nt - relaxation_time) / samples)
 cv = np.zeros(samples)
@@ -241,7 +241,7 @@ ax1.set_position([box.x0, box.y0 + box.height * 0.1,
 plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
             fancybox=True, shadow=True, ncol=3)
 plt.show()
-fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_pcf.eps", format='eps', dpi=1000)
+fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt) + "_pcf.eps", format='eps', dpi=1000)
 
 fig2 = plt.figure()
 ax = plt.subplot(111)
@@ -249,12 +249,13 @@ linee_pot, = plt.plot(range(Nt), e_pot, label="Potential energy")
 line_E, = plt.plot(range(Nt), e_kin + e_pot, label="Total energy")
 linee_kin, = plt.plot(range(Nt), e_kin, label="Kinetic energy")
 box = ax.get_position()
+plt.xlim([0, Nt])
 ax.set_position([box.x0, box.y0 + box.height * 0.1,
                  box.width, box.height * 0.9])
 plt.legend(handles=[linee_pot, line_E, linee_kin], loc='upper center', bbox_to_anchor=(0.5, -0.05),
            fancybox=True, shadow=True, ncol=3)
 plt.show()
-fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_energies.eps", format='eps', dpi=1000)
+fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt) + "_energies.eps", format='eps', dpi=1000)
 
 fig3 = plt.figure()
 ax = plt.subplot(111)
@@ -263,12 +264,12 @@ line_mom_y, = plt.plot(range(Nt), mom_y, label="$p_y$")
 line_mom_z, = plt.plot(range(Nt), mom_z, label="$p_z$")
 box = ax.get_position()
 plt.ylim([-1, 1])
+plt.xlim([0, Nt])
 ax.set_position([box.x0, box.y0 + box.height * 0.1,
                  box.width, box.height * 0.9])
 plt.legend(handles=[line_mom_x, line_mom_y, line_mom_z], loc='upper center', bbox_to_anchor=(0.5, -0.05),
            fancybox=True, shadow=True, ncol=3)
 plt.show()
-fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_momenta.eps", format='eps', dpi=1000)
-
+fig3.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt) + "_momenta.eps", format='eps', dpi=1000)
 
 
