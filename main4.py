@@ -7,7 +7,7 @@ import sys
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 2
+L = 6
 T = 1
 density = 0.8
 
@@ -124,7 +124,7 @@ def initiate():
     # Now make sure there is no net-movement of the particles (take of the average)
     velocities -= np.mean(velocities, axis=0)
     energy_kinetic = 0.5 * np.sum(velocities * velocities)
-    velocities *= math.sqrt(N * 3 * T / (2 * energy_kinetic))
+    velocities *= math.sqrt((N - 1) * 3 * T / (2 * energy_kinetic))
     forces, potential, virial, pc_n = calc_forces(locations)
     return locations, velocities, forces
 
@@ -144,7 +144,7 @@ for t in range(0, Nt):
     e_kin[t] = 0.5 * np.sum(velos * velos)
     # Optionally rescale the velocies in order to make temperature constant:
     if t < relaxation_time:
-        velos *= math.sqrt(N * 3 * T / (2 * e_kin[t]))
+        velos *= math.sqrt((N - 1) * 3 * T / (2 * e_kin[t]))
         e_kin[t] = 0.5 * np.sum(velos * velos)
     elif (t + 1 - relaxation_time) % sample_length == 0 and t > (
                     relaxation_time + sample_length - samples):  # Processing of this sample:
@@ -224,11 +224,14 @@ target.write("Empirical pressure: " + repr(np.mean(pressure_array)) + " with err
 target.write("\n")
 target.write("Average potential energy: " + repr(np.mean(e_pot_t_avg)) + "with error: " + repr(
     np.std(e_pot_t_avg) / math.sqrt(samples)))
+target.write("\n")
+target.write("FOR LATEX TABLE:")
+target.write("\n")
 target.write(repr(density) + ' & ' + repr(T) + ' & ' + repr(np.mean(temp[relaxation_time:])) + ' & ' + repr(
     np.std(temp[relaxation_time:])) + ' & ' + repr(np.mean(pressure_array)) + "&" + repr(
     np.std(pressure_array) / math.sqrt(samples)) + ' & ' + repr(np.mean(cv)) + " & " + repr(
     np.std(cv) / math.sqrt(samples)) + repr(np.mean(diff_c)) + " & " + repr(
-    np.std(diff_c) / math.sqrt(samples) + np.mean(e_pot_t_avg)) + " & " + repr(
+    np.std(diff_c) / math.sqrt(samples)) + ' & ' + repr(np.mean(e_pot_t_avg)) + " & " + repr(
     np.std(e_pot_t_avg) / math.sqrt(samples)))
 target.close()
 
