@@ -229,6 +229,9 @@ target.close()
 y_adjustment = 0.12
 legend_offset = -0.12
 
+name = "N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt)
+name = name.replace(".","")
+
 fig1 = plt.figure()
 ax1 = plt.subplot(111)
 plt.plot(pc_r, pcf_mean, label='$g(r/\sigma)$')
@@ -243,7 +246,7 @@ ax1.set_position([box.x0, box.y0 + box.height * y_adjustment,
 plt.legend(loc='upper center', bbox_to_anchor=(0.5, legend_offset),
             fancybox=True, shadow=True, ncol=3)
 plt.show()
-fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt) + "_pcf.eps", format='eps', dpi=1000)
+fig1.savefig(name + "_pcf.eps", format='eps', dpi=1000)
 
 fig2 = plt.figure()
 ax = plt.subplot(111)
@@ -259,7 +262,7 @@ ax.set_position([box.x0, box.y0 + box.height * y_adjustment,
 plt.legend(handles=[linee_pot, line_E, linee_kin], loc='upper center', bbox_to_anchor=(0.5, legend_offset),
            fancybox=True, shadow=True, ncol=3)
 plt.show()
-fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt) + "_energies.eps", format='eps', dpi=1000)
+fig2.savefig(name + "_energies.eps", format='eps', dpi=1000)
 
 fig3 = plt.figure()
 ax = plt.subplot(111)
@@ -276,6 +279,6 @@ ax.set_position([box.x0, box.y0 + box.height * y_adjustment,
 plt.legend(handles=[line_mom_x, line_mom_y, line_mom_z], loc='upper center', bbox_to_anchor=(0.5, legend_offset),
            fancybox=True, shadow=True, ncol=3)
 plt.show()
-fig3.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt) + "_momenta.eps", format='eps', dpi=1000)
+fig3.savefig(name + "_momenta.eps", format='eps', dpi=1000)
 
 
