@@ -7,7 +7,7 @@ import sys
 
 # L determines the number of FCC cells in each spatial direction.
 # Each FCC cell contains 4 atoms.
-L = 6
+L = 2
 T = 1
 density = 0.8
 
@@ -179,7 +179,7 @@ for i in range(samples):
     interval_stop = interval_start + sample_length - 1
     # Calculation for the specific heat:
     k = np.mean(e_kin[interval_start:interval_stop])
-    dk2 = np.mean((e_kin[interval_start:interval_stop] - k) ** 2)
+    dk2 = np.mean(np.power(e_kin[interval_start:interval_stop] - k, 2))
     k2 = k ** 2
     cv[i] = 3 * k2 / (2 * k2 - 3 * N * dk2)
     # Calculate the pair correlation function on sample's interval. This is evaluated for every bin:
@@ -226,33 +226,37 @@ target.write("Average potential energy: " + repr(np.mean(e_pot_t_avg)) + "with e
 target.close()
 
 # PLOTS
+y_adjustment = 0.12
+legend_offset = -0.12
 
 fig1 = plt.figure()
 ax1 = plt.subplot(111)
-plt.plot(pc_r, np.ones(bins), '--', label='g(r)=1')
-plt.plot(pc_r, pcf_mean, label='Pair correlation function')
+plt.plot(pc_r, pcf_mean, label='$g(r/\sigma)$')
+plt.plot(pc_r, np.ones(bins), '--', label='$g(r/\sigma)=1$')
 plt.fill_between(pc_r, pcf_mean - pcf_error, pcf_mean + pcf_error, label='error')
-plt.xlabel(r'r/$\sigma$')
-plt.ylabel('g(r)')
+plt.xlabel('$r/\sigma$')
+plt.ylabel('$g(r/\sigma)$')
 plt.xlim([0,0.5*box_size])
 box = ax1.get_position()
-ax1.set_position([box.x0, box.y0 + box.height * 0.1,
+ax1.set_position([box.x0, box.y0 + box.height * y_adjustment,
                  box.width, box.height * 0.9])
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, legend_offset),
             fancybox=True, shadow=True, ncol=3)
 plt.show()
 fig1.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt) + "_pcf.eps", format='eps', dpi=1000)
 
 fig2 = plt.figure()
 ax = plt.subplot(111)
-linee_pot, = plt.plot(range(Nt), e_pot, label="Potential energy")
-line_E, = plt.plot(range(Nt), e_kin + e_pot, label="Total energy")
-linee_kin, = plt.plot(range(Nt), e_kin, label="Kinetic energy")
+linee_pot, = plt.plot(range(Nt), e_pot, label="$E_{pot}")
+linee_kin, = plt.plot(range(Nt), e_kin, label="$E_{kin}$")
+line_E, = plt.plot(range(Nt), e_kin + e_pot, label="$E$")
 box = ax.get_position()
 plt.xlim([0, Nt])
-ax.set_position([box.x0, box.y0 + box.height * 0.1,
+plt.ylabel('$E(r/\sigma)/\epsilon$')
+plt.xlabel('$t\sqrt{\epsilon/m}/\sigma$')
+ax.set_position([box.x0, box.y0 + box.height * y_adjustment,
                  box.width, box.height * 0.9])
-plt.legend(handles=[linee_pot, line_E, linee_kin], loc='upper center', bbox_to_anchor=(0.5, -0.05),
+plt.legend(handles=[linee_pot, line_E, linee_kin], loc='upper center', bbox_to_anchor=(0.5, legend_offset),
            fancybox=True, shadow=True, ncol=3)
 plt.show()
 fig2.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt) + "_energies.eps", format='eps', dpi=1000)
@@ -265,9 +269,11 @@ line_mom_z, = plt.plot(range(Nt), mom_z, label="$p_z$")
 box = ax.get_position()
 plt.ylim([-1, 1])
 plt.xlim([0, Nt])
-ax.set_position([box.x0, box.y0 + box.height * 0.1,
+plt.ylabel('$p/\sqrt{m\epsilon}$')
+plt.xlabel('$t\sqrt{\epsilon/m}/\sigma$')
+ax.set_position([box.x0, box.y0 + box.height * y_adjustment,
                  box.width, box.height * 0.9])
-plt.legend(handles=[line_mom_x, line_mom_y, line_mom_z], loc='upper center', bbox_to_anchor=(0.5, -0.05),
+plt.legend(handles=[line_mom_x, line_mom_y, line_mom_z], loc='upper center', bbox_to_anchor=(0.5, legend_offset),
            fancybox=True, shadow=True, ncol=3)
 plt.show()
 fig3.savefig("N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt) + "_momenta.eps", format='eps', dpi=1000)
