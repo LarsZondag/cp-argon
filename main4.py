@@ -9,7 +9,7 @@ import sys
 # Each FCC cell contains 4 atoms.
 L = 6
 T = 1
-density = 0.8
+density = 0.88
 
 # The time step and the number of time steps are defined here. Relaxation_time is the time amount of timesteps
 # the system gets to reach a steady state (within this time the thermostat is used).
@@ -260,7 +260,7 @@ fig1.savefig(name + "_pcf.eps", format='eps', dpi=1000)
 
 fig2 = plt.figure()
 ax = plt.subplot(111)
-linee_pot, = plt.plot(range(Nt), e_pot, label="$E_{pot}")
+linee_pot, = plt.plot(range(Nt), e_pot, label="$E_{pot}$")
 linee_kin, = plt.plot(range(Nt), e_kin, label="$E_{kin}$")
 line_E, = plt.plot(range(Nt), e_kin + e_pot, label="$E$")
 box = ax.get_position()
