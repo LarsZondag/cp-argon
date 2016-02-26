@@ -50,10 +50,10 @@ pc_n_tot = np.zeros([bins])
 pcf = np.zeros((samples, bins))
 pc_n_array = np.zeros((samples, bins))
 rc2 = 9.0
-e_pot_correction = 8 * math.pi * density * (N-1) / (3 * math.sqrt(rc2)) * (1 / (3 * rc2 ** 4) - 1 / rc2)
+e_pot_correction = 8 * math.pi * density * (N - 1) / (3 * math.sqrt(rc2)) * (1 / (3 * rc2 ** 4) - 1 / rc2)
 pres_correction = 48 * math.pi * density / (T * 9 * math.sqrt(rc2)) * (2 / (3 * rc2 ** 4) - 1 / rc2)
 print("e_pot_correction = ", e_pot_correction)
-print("pressure_correction = ",pres_correction)
+print("pressure_correction = ", pres_correction)
 
 # Here we open a new file to write our data in:
 name = "N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + ".txt"
@@ -64,7 +64,7 @@ target = open(name, 'w')
 @jit
 def calc_forces(locations):
     f = np.zeros((N, 3))
-    virial=0
+    virial = 0
     potential = 0
     pc_n = np.zeros(shape=(bins,))
     # distances = np.zeros(bins)
@@ -100,7 +100,7 @@ def calc_forces(locations):
                 potential += 4 * (ir12 - ir6)
                 virial -= 24 * (2 * ir12 - ir6)
             r = np.sqrt(r2)
-            pc_n[int(r/pc_dr)] += 1
+            pc_n[int(r / pc_dr)] += 1
     return f, potential, virial, pc_n
 
 
@@ -147,7 +147,7 @@ for t in range(0, Nt):
         velos *= math.sqrt(N * 3 * T / (2 * e_kin[t]))
         e_kin[t] = 0.5 * np.sum(velos * velos)
     elif (t + 1 - relaxation_time) % sample_length == 0 and t > (
-                    relaxation_time + sample_length - samples):  #Processing of this sample:
+                    relaxation_time + sample_length - samples):  # Processing of this sample:
         print((t + 1 - relaxation_time))
         print("On sample", sample_index, "/", samples)
         # Calculate the diffusion coefficient for this interval:
@@ -187,7 +187,8 @@ for i in range(samples):
     # Determine the time average of the potential Energy:
     e_pot_t_avg[i] = np.mean(e_pot[interval_start:interval_stop]) + e_pot_correction
     # Calculate the pressure:
-    pres[interval_start:interval_stop] = 1 - 1/(3 * N * temp[interval_start:interval_stop]) * virial[interval_start:interval_stop] + pres_correction
+    pres[interval_start:interval_stop] = 1 - 1 / (3 * N * temp[interval_start:interval_stop]) * virial[
+                                                                                                interval_start:interval_stop] + pres_correction
     pressure_array[i] = np.mean(pres[interval_start:interval_stop])
 
 # Pair correlation function mean and error calculation:
@@ -211,7 +212,7 @@ print("Average potential energy: ", np.mean(e_pot_t_avg), "with error: ", np.std
 target.write("Emperical C_v = " + repr(np.mean(cv)) + ", with error: " + repr(np.std(cv) / math.sqrt(samples)))
 target.write("\n")
 target.write("Mean temperature: " + repr(np.mean(temp[relaxation_time:])) + " with error: " +
-             repr(np.std(temp[relaxation_time:]) / math.sqrt(samples)))
+             repr(np.std(temp[relaxation_time:])))
 target.write("\n")
 target.write("The intended temperature was: " + repr(T))
 target.write("\n")
@@ -223,6 +224,12 @@ target.write("Empirical pressure: " + repr(np.mean(pressure_array)) + " with err
 target.write("\n")
 target.write("Average potential energy: " + repr(np.mean(e_pot_t_avg)) + "with error: " + repr(
     np.std(e_pot_t_avg) / math.sqrt(samples)))
+target.write(repr(density) + ' & ' + repr(T) + ' & ' + repr(np.mean(temp[relaxation_time:])) + ' & ' + repr(
+    np.std(temp[relaxation_time:])) + ' & ' + repr(np.mean(pressure_array)) + "&" + repr(
+    np.std(pressure_array) / math.sqrt(samples)) + ' & ' + repr(np.mean(cv)) + " & " + repr(
+    np.std(cv) / math.sqrt(samples)) + repr(np.mean(diff_c)) + " & " + repr(
+    np.std(diff_c) / math.sqrt(samples) + np.mean(e_pot_t_avg)) + " & " + repr(
+    np.std(e_pot_t_avg) / math.sqrt(samples)))
 target.close()
 
 # PLOTS
@@ -230,7 +237,7 @@ y_adjustment = 0.12
 legend_offset = -0.12
 
 name = "N" + str(N) + "_T" + repr(T) + "_roh" + repr(density) + "_t" + repr(Nt)
-name = name.replace(".","")
+name = name.replace(".", "")
 
 fig1 = plt.figure()
 ax1 = plt.subplot(111)
@@ -239,12 +246,12 @@ plt.plot(pc_r, np.ones(bins), '--', label='$g(r/\sigma)=1$')
 plt.fill_between(pc_r, pcf_mean - pcf_error, pcf_mean + pcf_error, label='error')
 plt.xlabel('$r/\sigma$')
 plt.ylabel('$g(r/\sigma)$')
-plt.xlim([0,0.5*box_size])
+plt.xlim([0, 0.5 * box_size])
 box = ax1.get_position()
 ax1.set_position([box.x0, box.y0 + box.height * y_adjustment,
-                 box.width, box.height * 0.9])
+                  box.width, box.height * 0.9])
 plt.legend(loc='upper center', bbox_to_anchor=(0.5, legend_offset),
-            fancybox=True, shadow=True, ncol=3)
+           fancybox=True, shadow=True, ncol=3)
 plt.show()
 fig1.savefig(name + "_pcf.eps", format='eps', dpi=1000)
 
@@ -280,5 +287,3 @@ plt.legend(handles=[line_mom_x, line_mom_y, line_mom_z], loc='upper center', bbo
            fancybox=True, shadow=True, ncol=3)
 plt.show()
 fig3.savefig(name + "_momenta.eps", format='eps', dpi=1000)
-
-
