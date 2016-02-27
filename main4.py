@@ -3,7 +3,6 @@ import math
 import scipy.stats as stats
 from numba import jit
 import matplotlib.pyplot as plt
-import sys
 
 
 T_array = [1, 1, 1, 3, 0.5, 1]
